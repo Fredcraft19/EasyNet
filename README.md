@@ -2,8 +2,7 @@
 My work in progress Multiplayer solution for Unity
 
 # Server
-Its basically plug and play, all you need to do is sort out a self hosting solution, like Digital Ocean, Oracle, or your own pc.
-
+Just make a new C# project in VS Studio 2026 or whatever, and add EasyNet.cs and _ServerTerminal.cs into the project, run/compile it and it should say EasyNet Unity Server, if it says DO NOT TURN OFF LOADING CLIENTS, ignore that, its fine to shut down if it says that. I will remove this pointless line next time.
 # Client
 Things like user made RPCs are comming and Network Variables are underdevelopement, they work but are very weird with updating.
 
