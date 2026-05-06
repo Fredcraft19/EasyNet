@@ -13,7 +13,7 @@ The only working thing is the Network Transform Conpoennt which consistantly upd
 
 
 
-Over time, more features will be added. As the current features are obviously pathetic.
+Over time, more features will be added. As the current features are obviously not enough for a functioning multiplayer game.
 
 
 
