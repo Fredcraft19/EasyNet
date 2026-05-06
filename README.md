@@ -1,11 +1,11 @@
 # EasyNet-for-Unity
 My work in progress Multiplayer solution for Unity
 
-For the server:
+# Server
 
 Its basically plug and play, all you need to do is sort out a self hosting solution, like Digital Ocean, Oracle, or your own pc.
 
-For the client:
+# Client
 
 Things like user made RPCs are comming and Network Variables are underdevelopement, they work but are very weird with updating.
 
@@ -17,6 +17,6 @@ Over time, more features will be added. As the current features are obviously no
 
 
 
-Whats the goal?
+# Whats the goal?
 
 To make a basic Mutliplayer engine that 'works' so noone is trapped from CCU Limits. Obviously there are much better alternatives than this but its a fun project I'm working on.
