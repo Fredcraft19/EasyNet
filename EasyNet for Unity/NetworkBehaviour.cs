@@ -29,9 +29,9 @@ namespace EasyNet.Behaviour
         private void Awake()
         {
             ageDisplay = GameObject.Find("Age").GetComponent<TextMeshProUGUI>();
+            root = FindFirstObjectByType<NetworkManager>();
             if (isPlayers)
             {
-                root = FindFirstObjectByType<NetworkManager>();
                 root.NetworkVariable.Add("age", new NetworkVariable<int>(root, "age"));
                 root.NetworkObjectsSpawn.Add(gameObject);        // Maybe!? or should networkedObjs be for foreign objects?
                 Packet id_ping = new Packet(root.client, Bytes.Get(0), DataType.Int);
@@ -49,14 +49,14 @@ namespace EasyNet.Behaviour
                 {
                     age++;
                     root.NetworkVariable["age"].SetValue(age.ToString());
-                    Debug.Log("Set Network Var 'age' to : "+age);
+                    Debug.Log("NETWORKVIEW: Set Network Var 'age' to : "+age);
                 }
                 else
                 {
-                    age = FindObjectOfType<NetworkManager>().GetVariable<int>("age");
+                    age = root.GetVariable<int>("age");
                 }
-                ageDisplay.text = age.ToString();
-                
+                ageDisplay.text = root.GetVariable<int>("age").ToString();
+
             }
         }
 
