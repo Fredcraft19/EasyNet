@@ -68,11 +68,11 @@ async Task ClearCache()
             serverTick = -9000000000000000000;
         }
         playerList = "";
-        foreach(uint id in server.clients.Keys)
+        foreach (uint id in server.clients.Keys)
         {
-            playerList += $"{id}-";
+            playerList += $"-{id}";
         }
-       
+
 
         while (server.cache.TryDequeue(out var packet))
         {
@@ -89,6 +89,23 @@ async Task ClearCache()
             if (packet.dataType == DataType.Custom || packet.dataType == DataType.String)
             {
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("SERVER_TICK", serverTick.ToString()));
+
+                string msg = Bytes.ToString(packet.Data);
+
+                if (msg.Contains("PLAYER_LIST"))
+                {
+                    Console.WriteLine($"Sending PLAYER_LIST to {packet.SenderID}");
+                    string[] splitted = msg.Split(' ');
+                    splitted[2] = packet.SenderID.ToString();
+                    msg = "";
+                    foreach (string s in splitted) {
+                        msg += s + " ";
+                    }
+                    msg.Replace("PLAYER_LIST", playerList);
+                    packet.Data = Bytes.Get(msg);
+                }
+
+
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("PLAYER_LIST", playerList));
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"Echoing Packet of:\nType: {packet.dataType}\n Data: {Bytes.ToString(packet.Data)} ");
@@ -102,7 +119,7 @@ async Task ClearCache()
             {
                 Console.WriteLine($"Client [{packet.SenderID}] Pinged Back.");
             }
-            else if(packet.dataType == DataType.Int)
+            else if (packet.dataType == DataType.Int)
             {
                 Console.WriteLine($"Integer Recienved: {Bytes.ToInt32(packet.Data)}");
             }
@@ -118,3 +135,4 @@ async Task ClearCache()
         await Task.Delay(100);
     }
 }
+
