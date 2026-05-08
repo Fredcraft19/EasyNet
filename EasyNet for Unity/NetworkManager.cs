@@ -17,7 +17,8 @@ namespace EasyNet.Manager
         public int port;
         public Client client;
         public long ID;
-        public bool MasterClient;
+
+        public bool IsMaster;
 
         public long serverTick;
         public int tickSpeed;
@@ -29,7 +30,7 @@ namespace EasyNet.Manager
 
         [Serialize]
         public Dictionary<string, NetworkVariableBase> NetworkVariable = new Dictionary<string, NetworkVariableBase>();
-        public bool showNetVar=false;
+        public bool showNetVar = false;
 
         private bool SpawnedPlayer = false;
 
@@ -43,6 +44,18 @@ namespace EasyNet.Manager
                 output.Format();
                 client.SendPacket(output);
             }
+        }
+        public void CheckIfMaster()
+        {
+            bool placeholder = true;
+            foreach (long id in PlayerList)
+            {
+                if(id < client.ID && id != client.ID)
+                {
+                    placeholder = false;
+                }
+            }
+            IsMaster = placeholder;
         }
         public T GetVariable<T>(string key)
         {
@@ -60,60 +73,72 @@ namespace EasyNet.Manager
             NetworkVariable[netVar.name] = netVar;
         }
 
-            void Awake()
-            {
-                if (port == 0)
-                    port = 8080;
+        void Awake()
+        {
+            if (port == 0)
+                port = 8080;
 
-                client = new Client(ip, port);
-                client.managed = true;
+            client = new Client(ip, port);
+            client.managed = true;
 
-                if(ID != 2 || ID != 0)
+            if (ID != 2 || ID != 0)
             {
                 Command objRequest = new Command(client, 2, "REQUEST", "");
                 objRequest.Format();
                 Packet output = new Packet(client, objRequest.GetBytes(), DataType.Custom);
                 client.SendPacket(output);
             }
-                
 
-            
-            }
+
+
+        }
         void Start()
         {
             client.UpdateRate = 50f;
             StartCoroutine(SlowUpdate());
+            StartCoroutine(SlowerUpdate());
         }
         void Update()
         {
             if (showNetVar)
             {
-                string str="";
-                foreach(var name in NetworkVariable.Keys)
+                string str = "";
+                foreach (var name in NetworkVariable.Keys)
                 {
                     str += $"Name: {name} Value {GetVariable<int>("name")}\n";
                 }
-                Debug.Log("All Network Variables:\n"+str);
+                Debug.Log("All Network Variables:\n" + str);
             }
             List<LerpedObject> finished = new List<LerpedObject>();
-            foreach(LerpedObject obj in LerpingObjects)
+            foreach (LerpedObject obj in LerpingObjects)
             {
                 if (!obj.done)
                     obj.Lerp();
                 else
                     finished.Add(obj);
             }
-            foreach(LerpedObject obj in finished)
+            foreach (LerpedObject obj in finished)
             {
                 LerpingObjects.Remove(obj);
             }
         }
-        public void UpdatePlayerList()
+        public void RequestPlayerList()
         {
-            Command command = new Command(client, 1, "ServerCommand", "PLAYER_LIST");
+            Command command = new Command(client, -1, "ServerCommand", "PLAYER_LIST");
             command.Format();
-            Packet output = new Packet(client, command.GetBytes());
+            Packet output = new Packet(client, command.GetBytes(), DataType.Custom);
             client.notSentPackets.TryAdd(output.PacketID, output);
+        }
+        IEnumerator SlowerUpdate()
+        {
+            Debug.Log("Started 'Slower Update'");
+            while (true)
+            {
+                RequestPlayerList();
+                yield return new WaitForSeconds(2.5f);
+                CheckIfMaster();
+                yield return new WaitForSeconds(2.5f);
+            }
         }
         IEnumerator SlowUpdate()
         {
@@ -121,7 +146,6 @@ namespace EasyNet.Manager
             {
                 yield return new WaitForSeconds(1f / (float)tickSpeed);
                 client.managed = true;
-                UpdatePlayerList();
                 while (client.cache.TryDequeue(out Packet pack))
                 {
                     pack.Format();
@@ -258,26 +282,34 @@ namespace EasyNet.Manager
                             }
                             else if (splitted[0] == "ServerCommand")
                             {
-                                Debug.Log("Recieved Server Command");
+                                
                                 string[] playerList = msg.Split('-');
-                                playerList[0] = "1";
+                                playerList[0] = "999999";
+                                string output = "";
+                                foreach (string s in playerList)
+                                {
+                                    output += s + " ";
+                                }
+                                Debug.Log($"Recieved Player List from Server! Stats:\nmsg: {msg}\nsplitted: {output}");
+
                                 PlayerList.Clear();
-                                foreach(string player in playerList)
+                                foreach (string player in playerList)
                                 {
                                     try
                                     {
+                                        Debug.Log($"Added player: {player} to player list");
                                         PlayerList.Add(Convert.ToInt64(player));
                                     }
-                                    catch(Exception e)
+                                    catch (Exception e)
                                     {
-                                        Debug.LogError($"ERROR from NETWORK MANAGER, 'ServerCommand': {e}");
+                                        Debug.LogWarning($"ERROR from NETWORK MANAGER, 'ServerCommand': Failed Int Convert: '{player}' \nError:{e}");
                                     }
                                 }
                             }
                             else if (splitted[0] == "RPC")
                             {
                                 Debug.Log("RPC Recieved");
-                                
+
                             }
                             else if (splitted[0] == "UPDATEVAR")
                             {
@@ -348,9 +380,9 @@ namespace EasyNet.Manager
                         _ = client.client.Send(pingBack.GetBytes());
                     }
                 }
-                
+
             }
         }
-        
+
     }
 }
