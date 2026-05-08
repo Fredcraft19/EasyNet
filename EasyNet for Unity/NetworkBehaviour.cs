@@ -49,7 +49,7 @@ namespace EasyNet.Behaviour
                 {
                     age++;
                     root.NetworkVariable["age"].SetValue(age.ToString());
-                    Debug.Log("NETWORKVIEW: Set Network Var 'age' to : "+age);
+                    Debug.Log("NETWORKVIEW: Set Network Var 'age' to : " + age);
                 }
                 else
                 {
@@ -61,18 +61,18 @@ namespace EasyNet.Behaviour
         }
 
         private void Update()
-        { 
+        {
             if (!GetComponent<NetworkBehaviour>().isPlayers) { return; }
             if (showEndpoint)
             {
                 showEndpoint = false;
                 Debug.LogWarning($"Endpoint: {(IPEndPoint)root.client.client._socket.LocalEndPoint}");
             }
-            if(root.client != null && isPlayers)
+            if (root.client != null && isPlayers)
             {
                 Connected = root.client.isConnected();
 
-                
+
             }
         }
 
