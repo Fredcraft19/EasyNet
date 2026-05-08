@@ -1,4 +1,4 @@
-﻿using EasyNet.Manager;
+using EasyNet.Manager;
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using System;
@@ -58,7 +58,7 @@ namespace EasyNet
             string[] parts = formatted.Split(' ');
             str = parts[0];
             SenderID = (uint)Convert.ToInt32(parts[1]);
-            TargetID = Convert.ToInt32(parts[2]);
+            TargetID = Convert.ToInt64(parts[2]);
             for(int i = 3; i < parts.Length; i++)
             {
                 data += parts[i] + " ";
@@ -104,6 +104,7 @@ namespace EasyNet
         public string name;
         public abstract object BoxedValue { get; set; }
         internal abstract void SetValue(string value);
+        internal abstract void SetLocalValue(string value);
         internal abstract string SerializeValue();
     }
     class NetworkVariable<T> : NetworkVariableBase
@@ -125,10 +126,15 @@ namespace EasyNet
         {
             _value = Parse(value);
             Debug.Log($"Updating Variable {name} to {value} Command:\nUPDATEVAR SERVER_TICK {name} {value}");
-            Command makeVaraible = new Command(net.client, 0, "UPDATEVAR", $"SERVER_TICK {name} {value}");
-            makeVaraible.Format();
-            Packet output = new Packet(net.client, makeVaraible.GetBytes(), DataType.Custom);
-            net.client.SendPacket(output);
+            Command updateVar = new Command(net.client, 0, "UPDATEVAR", $"SERVER_TICK {name} {value}");
+            updateVar.Format();
+            Packet output = new Packet(net.client, updateVar.GetBytes(), DataType.Custom);
+            net.client.notSentPackets.TryAdd(output.PacketID, output);
+        }
+        internal override void SetLocalValue(string value)
+        {
+            _value = Parse(value);
+            Debug.Log($"Updating Variable {name} to {value} Command:\nUPDATEVAR SERVER_TICK {name} {value}");
         }
         public T Value
         {
