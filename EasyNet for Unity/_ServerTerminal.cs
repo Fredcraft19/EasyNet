@@ -1,4 +1,4 @@
-﻿using EasyNet_BackEnd.Data;
+using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using System.Net;
 
@@ -7,6 +7,8 @@ Console.WriteLine("EasyNet Unity Server");
 long serverTick = 0;
 Server server = new Server(true);
 server.managed = true;
+
+string playerList = "";
 
 while (server.clients.Count == 0)
 {
@@ -65,6 +67,12 @@ async Task ClearCache()
         {
             serverTick = -9000000000000000000;
         }
+        playerList = "";
+        foreach(uint id in server.clients.Keys)
+        {
+            playerList += $"{id}-";
+        }
+       
 
         while (server.cache.TryDequeue(out var packet))
         {
@@ -81,6 +89,7 @@ async Task ClearCache()
             if (packet.dataType == DataType.Custom || packet.dataType == DataType.String)
             {
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("SERVER_TICK", serverTick.ToString()));
+                packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("PLAYER_LIST", playerList));
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"Echoing Packet of:\nType: {packet.dataType}\n Data: {Bytes.ToString(packet.Data)} ");
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data));
@@ -92,6 +101,10 @@ async Task ClearCache()
             else if (packet.dataType == DataType.Ping)
             {
                 Console.WriteLine($"Client [{packet.SenderID}] Pinged Back.");
+            }
+            else if(packet.dataType == DataType.Int)
+            {
+                Console.WriteLine($"Integer Recienved: {Bytes.ToInt32(packet.Data)}");
             }
             else
             {
