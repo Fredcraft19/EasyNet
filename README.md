@@ -10,6 +10,7 @@ The only working thing is the Network Transform Conpoennt which consistantly upd
 
 # Note
 Over time, more features will be added. As the current features are obviously not enough for a functioning multiplayer game.
+AI was used in the developemnt - This does not mean the 'whole thing is AI'. AI was used in parts i was unsure about and am still learning about, it was used to assist, not to copy and paste.
 
 # Whats the goal?
 To make a basic Mutliplayer engine that 'works' so noone is trapped from CCU Limits. Obviously there are much better alternatives than this but its a fun project I'm working on.
