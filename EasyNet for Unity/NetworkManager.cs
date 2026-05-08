@@ -3,11 +3,9 @@ using EasyNet.Behaviour;
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using System;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net;
-using System.Net.Sockets;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -19,11 +17,13 @@ namespace EasyNet.Manager
         public int port;
         public Client client;
         public long ID;
+        public bool MasterClient;
 
         public long serverTick;
         public int tickSpeed;
         public List<GameObject> NetworkObjects = new List<GameObject>();
         public List<GameObject> NetworkObjectsSpawn = new List<GameObject>();
+        public List<long> PlayerList = new List<long>();
 
         public List<LerpedObject> LerpingObjects = new List<LerpedObject>();
 
@@ -81,7 +81,7 @@ namespace EasyNet.Manager
             }
         void Start()
         {
-            client.UpdateRate = 100f;
+            client.UpdateRate = 50f;
             StartCoroutine(SlowUpdate());
         }
         void Update()
@@ -108,86 +108,32 @@ namespace EasyNet.Manager
                 LerpingObjects.Remove(obj);
             }
         }
+        public void UpdatePlayerList()
+        {
+            Command command = new Command(client, 1, "ServerCommand", "PLAYER_LIST");
+            command.Format();
+            Packet output = new Packet(client, command.GetBytes());
+            client.notSentPackets.TryAdd(output.PacketID, output);
+        }
         IEnumerator SlowUpdate()
         {
             while (true)
             {
                 yield return new WaitForSeconds(1f / (float)tickSpeed);
                 client.managed = true;
+                UpdatePlayerList();
                 while (client.cache.TryDequeue(out Packet pack))
                 {
                     pack.Format();
-                    Debug.Log("Decoding Packet: " + pack.dataType);
                     if (DataType.Custom == pack.dataType)
                     {
-                        Debug.Log($"-> {Bytes.ToString(pack.Data)}");
+                        Command command = new Command(pack, client);
+
+                        Debug.Log($"Packet Recieved -> {pack.dataType}: {Bytes.ToString(pack.Data)}");
                         string msg = Bytes.ToString(pack.Data);
                         string[] splitted = msg.Split(' ');
 
-                        if (splitted[0] == "REQUEST")
-                        {
-                            string SenderID = splitted[1];
-                            if (client.ID == 2)  // original, first player
-                            {
-                                Debug.Log($"Sending out all Object Information to Client that requested.");
-                                string Objects = "";
-                                for (int i = 0; i < NetworkObjectsSpawn.Count; i++)
-                                {
-                                    string index = "-1";
-                                    for (int x = 0; x < NetworkObjects.Count; x++)
-                                    {
-                                        if (NetworkObjectsSpawn[i] == NetworkObjects[x])
-                                        {
-                                            index = $"{x}";
-                                        }
-                                    }
-                                    Objects += $"{i}-{index}" + " ";
-                                }
-                                Command CurrentObjects = new Command(client, Convert.ToInt32(SenderID), "OBJECTS", Objects);
-                                CurrentObjects.Format();
-                                Packet output = new Packet(client, CurrentObjects.GetBytes(), DataType.Custom);
-                            }
-                        }
-                        else if (splitted[0] == "OBJECTS")
-                        {
-                            string SenderID = splitted[1];
-                            long ID = pack.PacketID;
-                            for (int i = 3; i < splitted.Length; i++)
-                            {
-                                long newID = ID + (i * 7);
-                                string[] parts = splitted[i].Split('-');
-                                Debug.Log($"OBJECTS: Parts: {parts}");
-                                string ObjID = parts[0];
-                                string ObjIndex = parts[1];
-                                GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(ObjIndex)]);
-                                go.GetComponent<NetworkBehaviour>().ID = newID;
-                            }
-                        }
-                        else if (splitted[0] == "SPAWN")
-                        {
-                            string sender = splitted[1];
-                            string obj = splitted[2];
-                            Debug.Log($"{sender}: Spawn Object [{obj}]");
-
-                            GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(obj)]);
-                            NetworkObjectsSpawn.Add(go);
-                            yield return new WaitForSeconds(1f);
-
-                            go.GetComponent<NetworkBehaviour>().ID = (pack.PacketID * 7);
-
-                            if (client.ID == Convert.ToInt32(sender))
-                            {
-                                NetworkBehaviour net = go.GetComponent<NetworkBehaviour>();
-                                net.isPlayers = true;
-                                net.root = this;
-                                Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: True");
-                            }
-                            else
-                            {
-                                Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: False");
-                            }
-                        }
-                        else if (splitted[0] == "P")
+                        if (splitted[0] == "P")
                         {
                             int senderID = Convert.ToInt32(splitted[1]);
                             long targetID = Convert.ToInt64(splitted[2]);
@@ -201,16 +147,16 @@ namespace EasyNet.Manager
                                 if (obj.ID == targetID && !obj.isPlayers)
                                 {
                                     bool canAdd = true;
-                                    foreach(LerpedObject l in LerpingObjects)
+                                    foreach (LerpedObject l in LerpingObjects)
                                     {
-                                        if(l.obj == OBJ)
+                                        if (l.obj == OBJ)
                                         {
                                             canAdd = false;
                                             l.target = newPos;
                                             break;
                                         }
                                     }
-                                    if(canAdd)
+                                    if (canAdd)
                                         LerpingObjects.Add(new LerpedObject(OBJ, newPos));
                                 }
                             }
@@ -246,38 +192,135 @@ namespace EasyNet.Manager
                                 }
                             }
                         }
-                        else if (splitted[0] == "UPDATEVAR")
+                        if (command.TargetID == client.ID || command.TargetID == 0)
                         {
-                            Debug.Log("UPDATEVAR Recieved");
-                            string sender =splitted[1];
-                            string target = splitted[2];
-                            long latestTick = Convert.ToInt64(splitted[3]);
-                            string name = splitted[4];
-                            string value = splitted[5];
-                            if((latestTick < 0 && serverTick > 0) || (latestTick > serverTick))
+                            if (splitted[0] == "REQUEST")
                             {
-                                serverTick = latestTick;
-                                if (!NetworkVariable.ContainsKey(name))
+                                string SenderID = splitted[1];
+                                if (client.ID == 2)  // original, first player
                                 {
-                                    Debug.Log($"Network Variable: '{name}' does not exist. Creating one now");
-                                    NetworkVariable.Add(name, new NetworkVariable<int>(this, name));
-                                }
-                                if (splitted.Length > 6 && NetworkVariable[name].GetType() == typeof(string))
-                                {
-                                    for (int i = 6; i < splitted.Length; i++)
+                                    Debug.Log($"Sending out all Object Information to Client that requested.");
+                                    string Objects = "";
+                                    for (int i = 0; i < NetworkObjectsSpawn.Count; i++)
                                     {
-                                        value += splitted[i] + " ";
+                                        string index = "-1";
+                                        for (int x = 0; x < NetworkObjects.Count; x++)
+                                        {
+                                            if (NetworkObjectsSpawn[i] == NetworkObjects[x])
+                                            {
+                                                Command Spawn = new Command(client, Convert.ToInt64(SenderID), "SPAWN", $"{x}");
+                                                Spawn.Format();
+                                                Packet output = new Packet(client, Spawn.GetBytes(), DataType.Custom);
+                                            }
+                                        }
+                                        Objects += $"{i}-{index}" + " ";
                                     }
                                 }
+                            }
+                            else if (splitted[0] == "OBJECTS")
+                            {
+                                string SenderID = splitted[1];
+                                long ID = pack.PacketID;
+                                for (int i = 3; i < splitted.Length; i++)
+                                {
+                                    long newID = ID + (i * 7);
+                                    string[] parts = splitted[i].Split('-');
+                                    Debug.Log($"OBJECTS: Parts: {parts}");
+                                    string ObjID = parts[0];
+                                    string ObjIndex = parts[1];
+                                    GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(ObjIndex)]);
+                                    go.GetComponent<NetworkBehaviour>().ID = newID;
+                                }
+                            }
+                            else if (splitted[0] == "SPAWN")
+                            {
+                                string sender = splitted[1];
+                                string obj = splitted[2];
+                                Debug.Log($"{sender}: Spawn Object [{obj}]");
 
-                                NetworkVariable[name].SetValue(value);
+                                GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(obj)]);
+                                NetworkObjectsSpawn.Add(go);
+                                yield return new WaitForSeconds(1f);
 
-                                Debug.Log($"Updated Variable: '{name}' to '{value}'");
-                            }                            
+                                go.GetComponent<NetworkBehaviour>().ID = (pack.PacketID * 7);
+
+                                if (client.ID == Convert.ToInt32(sender))
+                                {
+                                    NetworkBehaviour net = go.GetComponent<NetworkBehaviour>();
+                                    net.isPlayers = true;
+                                    net.root = this;
+                                    Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: True");
+                                }
+                                else
+                                {
+                                    Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: False");
+                                }
+                            }
+                            else if (splitted[0] == "ServerCommand")
+                            {
+                                Debug.Log("Recieved Server Command");
+                                string[] playerList = msg.Split('-');
+                                playerList[0] = "1";
+                                PlayerList.Clear();
+                                foreach(string player in playerList)
+                                {
+                                    try
+                                    {
+                                        PlayerList.Add(Convert.ToInt64(player));
+                                    }
+                                    catch(Exception e)
+                                    {
+                                        Debug.LogError($"ERROR from NETWORK MANAGER, 'ServerCommand': {e}");
+                                    }
+                                }
+                            }
+                            else if (splitted[0] == "RPC")
+                            {
+                                Debug.Log("RPC Recieved");
+                                
+                            }
+                            else if (splitted[0] == "UPDATEVAR")
+                            {
+                                Debug.Log("UPDATEVAR Recieved");
+                                string sender = splitted[1];
+                                //string target = splitted[2];
+                                long latestTick = -1;
+                                if (!long.TryParse(splitted[3], out latestTick))
+                                {
+                                    Debug.LogError($"Failed to parse tick. Raw string value was: '{splitted[3]}'");
+                                }
+
+                                string name = splitted[4];
+                                string value = splitted[5];
+                                if ((latestTick < 0 && serverTick > 0) || (latestTick > serverTick))
+                                {
+                                    serverTick = latestTick;
+                                    if (!NetworkVariable.ContainsKey(name))
+                                    {
+                                        Debug.Log($"Network Variable: '{name}' does not exist. Creating one now");
+                                        NetworkVariable.Add(name, new NetworkVariable<int>(this, name));
+                                    }
+                                    if (splitted.Length > 6 && NetworkVariable[name].GetType() == typeof(string))
+                                    {
+                                        for (int i = 6; i < splitted.Length; i++)
+                                        {
+                                            value += splitted[i] + " ";
+                                        }
+                                    }
+
+                                    NetworkVariable[name].SetLocalValue(value);
+
+                                    Debug.Log($"NETWORK MANAGER: Updated Variable: '{name}' to '{value}'");
+                                }
+                            }
+                            else
+                            {
+                                Debug.Log($"Unrecognised Custom Packet sent:\nMessage/Commmand: {msg}");
+                            }
                         }
                         else
                         {
-                            Debug.Log($"Unrecognised Custom Packet sent:\nMessage/Commmand: {msg}");
+                            Debug.Log($"Ignoring recieved Command Reason:\nTargetID: {command.TargetID} MyID: {client.ID}");
                         }
                     }
                     else if (DataType.SetID == pack.dataType)
