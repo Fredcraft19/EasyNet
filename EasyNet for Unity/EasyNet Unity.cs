@@ -59,7 +59,7 @@ namespace EasyNet
             str = parts[0];
             SenderID = (uint)Convert.ToInt32(parts[1]);
             TargetID = Convert.ToInt64(parts[2]);
-            for(int i = 3; i < parts.Length; i++)
+            for (int i = 3; i < parts.Length; i++)
             {
                 data += parts[i] + " ";
             }
@@ -95,8 +95,8 @@ namespace EasyNet
             time += Time.deltaTime;
             float t = time / lerpDuration;
             obj.transform.position = UnityEngine.Vector3.Lerp(obj.transform.position, target, t);
-            if(t >= 1)
-                done  = true;
+            if (t >= 1)
+                done = true;
         }
     }
     public abstract class NetworkVariableBase
@@ -114,7 +114,7 @@ namespace EasyNet
         public NetworkVariable(NetworkManager _net, string _name)
         {
             net = _net;
-            if(_name.Contains(" "))
+            if (_name.Contains(" "))
                 throw new Exception("NetworkVariable name cannot contain spaces");
 
             name = _name;
@@ -157,7 +157,6 @@ namespace EasyNet
         {
             return (T)Convert.ChangeType(str, typeof(T));
         }
-        
+
     }
 }
-
