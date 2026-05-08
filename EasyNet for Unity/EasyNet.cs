@@ -1,4 +1,4 @@
-﻿using EasyNet_BackEnd.Data;
+using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using EasyNet_BackEnd.UDP;
 using System;
@@ -98,13 +98,16 @@ namespace EasyNet_BackEnd
                             {
                                 await client.Send(packet.GetBytes());
                                 packet.resendCount++;
+
+                                // Remove for resend checks!
+                                notSentPackets.TryRemove(packet.PacketID, out _);
                             }
                             else
                             {
                                 notSentPackets.TryRemove(packet.PacketID, out _);
                             }
                         }
-                        await Task.Delay((int)(1000f / UpdateRate));
+                        await Task.Delay(1000 / (int)UpdateRate);
                     }
                 });
             }
