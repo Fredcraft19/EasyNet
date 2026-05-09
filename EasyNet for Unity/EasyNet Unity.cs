@@ -54,15 +54,18 @@ namespace EasyNet
         public void Format()
         {
             if (rawBytes == null) return;
-            string formatted = Encoding.UTF8.GetString(rawBytes);
-            string[] parts = formatted.Split(' ');
-            str = parts[0];
-            SenderID = (uint)Convert.ToInt32(parts[1]);
-            TargetID = Convert.ToInt64(parts[2]);
-            for (int i = 3; i < parts.Length; i++)
-            {
-                data += parts[i] + " ";
-            }
+
+                string formatted = Encoding.UTF8.GetString(rawBytes);
+                string[] parts = formatted.Split(' ');
+                str = parts[0];
+                SenderID = (uint)Convert.ToInt32(parts[1]);
+                TargetID = Convert.ToInt64(parts[2]);
+                for (int i = 3; i < parts.Length; i++)
+                {
+                    data += parts[i] + " ";
+                }
+           
+            
         }
     }
     public static class Send
@@ -75,7 +78,7 @@ namespace EasyNet
         }
     }
     [Serializable]
-    class LerpedObject
+    public class LerpedObject
     {
         public GameObject obj;
         public UnityEngine.Vector3 target;
@@ -159,4 +162,27 @@ namespace EasyNet
         }
 
     }
+    /// <summary>
+    /// Select who you want to send an RPC to.
+    /// </summary>
+    public enum RPCTarget
+    {
+        /// <summary>
+        /// All the players including sender
+        /// </summary>
+        All,
+        /// <summary>
+        /// All of the players exept the sender
+        /// </summary>
+        Others,
+        /// <summary>
+        /// Only the Master Client
+        /// </summary>
+        Master,
+        /// <summary>
+        /// All of the players including the sender, the sender runs RPC when recieved by the server, not locally
+        /// </summary>
+        AllByServer
+    }
 }
+
