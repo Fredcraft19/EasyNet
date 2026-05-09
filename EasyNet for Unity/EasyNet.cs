@@ -1,6 +1,8 @@
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using EasyNet_BackEnd.UDP;
+using EasyNet_BackEnd.Additions;
+
 using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
@@ -10,6 +12,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace EasyNet_BackEnd
 {
@@ -133,22 +136,20 @@ namespace EasyNet_BackEnd
                             recieved.rawData = recievedData;
                             recieved.Format();
 
-                            UnityEngine.Debug.Log($"Packet recieved of type: {recieved.dataType} from {recieved.SenderID}");
+                            Console.WriteLine($"Packet recieved of type: {recieved.dataType} from {recieved.SenderID}");
 
 
-                            if (0 != recieved.SenderID || ID == 1)
+                            if (0 != recieved.SenderID)
                             {
                                 cache.Enqueue(recieved);
                             }
+
+
                             if (recieved.dataType != DataType.Callback)
                             {
                                 Packet callback = new Packet(this, Bytes.Get(1), DataType.Callback);
                                 callback.PacketID = recieved.PacketID;
                                 notSentPackets.TryAdd(callback.PacketID, callback);
-                            }
-                            else if (recieved.dataType == DataType.Custom)
-                            {
-                                UnityEngine.Debug.Log("Custom Data Recieved");
                             }
                             else
                             {
@@ -158,7 +159,7 @@ namespace EasyNet_BackEnd
                     }
                     catch (Exception e)
                     {
-                        UnityEngine.Debug.Log($"Message Loop Failed with error:\n{e}");
+                        Console.WriteLine($"Message Loop Failed with error:\n{e}");
                     }
                 });
             }
@@ -173,6 +174,9 @@ namespace EasyNet_BackEnd
             public ConcurrentQueue<Packet> cache = new ConcurrentQueue<Packet>();
             public Dictionary<uint, EndPoint> clients = new Dictionary<uint, EndPoint>();
             public ConcurrentDictionary<long, Packet> notSentPackets = new ConcurrentDictionary<long, Packet>();
+
+            public List<Room> rooms = new List<Room>();
+            
 
             public bool DEBUG_LOG;
             public bool managed = false;
@@ -190,6 +194,19 @@ namespace EasyNet_BackEnd
                 StartMessageLoop();
                 PacketSender();
                 _ = ClientPings();
+            }
+
+            public uint GetMasterClient()
+            {
+                uint masterClient = uint.MaxValue;
+                foreach(uint playerID in clients.Keys)
+                {
+                    if(playerID < masterClient)
+                    {
+                        masterClient = playerID;
+                    }
+                }
+                return masterClient;
             }
 
             public void SendData(string data)
@@ -222,10 +239,10 @@ namespace EasyNet_BackEnd
                     Packet ping = new Packet(this, Bytes.Get("Ping"), DataType.Ping);
                     notSentPackets.TryAdd(ping.PacketID, ping);
 
-                    await Task.Delay(10000);
+                    await Task.Delay(5000);
 
                     var now = DateTime.UtcNow;
-                    var timeout = TimeSpan.FromSeconds(30);
+                    var timeout = TimeSpan.FromSeconds(10);
 
                     List<uint> toRemove = new();
 
@@ -244,14 +261,12 @@ namespace EasyNet_BackEnd
                         clients.Remove(id);
                         lastSeen.Remove(id);
                         Console.WriteLine($"Client[{id}] timed out");
+                        Packet kickedClient = new Packet(this, Bytes.Get($"KICK 1 0 {id}"));
+                        notSentPackets.TryAdd(kickedClient.PacketID, kickedClient);
                     }
-
-
-
-
+                    
                 }
             }
-
             public void UpdateCache()
             {
                 if (!managed)
@@ -372,26 +387,25 @@ namespace EasyNet_BackEnd
 
                             if (!clients.ContainsValue(endPoint))
                             {
-                                uint newId = (uint)clients.Values.Count + 2;
-                                byte[] bytes = Bytes.Get(newId);
-                                Packet updateID = new Packet(this, bytes, DataType.SetID);
-                                updateID.target = endPoint;
+                                uint newId = (clients.Keys.Count > 0 ? clients.Keys.Max() : 1) + 1;
+
+                                Console.WriteLine($"Given a new client an id of {newId}.");
+
                                 clients.Add(newId, endPoint);
-                                notSentPackets.TryAdd(updateID.PacketID, updateID);
+                                SendIdUpdate(newId, endPoint);
                             }
                             else if (echoPacket.SenderID == 0)
                             {
-                                long id;
-                                if (clients.Values.Count > 0)
-                                    id = clients.FirstOrDefault(x => x.Value == endPoint).Key;
-                                else
-                                    id = 2; // if there are no saved/connected clients, then give it the first ID for CLients which is 2
-                                            // because Server is ID 1.
-                                byte[] bytes = Bytes.Get(id);
-                                Packet updateID = new Packet(this, bytes, DataType.SetID);
-                                updateID.target = endPoint;
-                                notSentPackets.TryAdd(updateID.PacketID, updateID);
-                            }
+                                uint existingId = clients.FirstOrDefault(x => x.Value.Equals(endPoint)).Key;
+
+                                if (existingId == 0)
+                                {
+                                    existingId = (clients.Keys.Count > 0 ? clients.Keys.Max() : 1) + 1;
+                                    clients.Add(existingId, endPoint);
+                                }
+
+                                SendIdUpdate(existingId, endPoint);
+                            }                            
                             if (echoPacket.dataType == DataType.Callback)
                             {
                                 notSentPackets.TryRemove(echoPacket.PacketID, out _);
@@ -404,12 +418,27 @@ namespace EasyNet_BackEnd
                     }
                 });
             }
+            void SendIdUpdate(uint id, EndPoint target)
+            {
+                byte[] bytes = Bytes.Get(id);
+                Packet updateID = new Packet(this, bytes, DataType.SetID);
+                updateID.target = target;
+                notSentPackets.TryAdd(updateID.PacketID, updateID);
+            }
 
             public uint GetPacketCount()
             {
                 packetCount++;
                 return packetCount;
             }
+        }
+    }
+    namespace Additions
+    {
+        public class Room
+        {
+            public string name;
+            public int playerCount;
         }
     }
 
