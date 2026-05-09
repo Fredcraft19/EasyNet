@@ -16,6 +16,7 @@ namespace EasyNet.Behaviour
         public NetworkManager root;
 
         public long ID;
+        public uint OwnerID;
 
         public bool Connected;
         public bool isPlayers = false;
@@ -30,9 +31,17 @@ namespace EasyNet.Behaviour
         {
             ageDisplay = GameObject.Find("Age").GetComponent<TextMeshProUGUI>();
             root = FindFirstObjectByType<NetworkManager>();
-            if (isPlayers)
+            try
             {
                 root.NetworkVariable.Add("age", new NetworkVariable<int>(root, "age"));
+            }
+            catch(Exception e)
+            {
+                Debug.LogWarning($"Already made varaible, age:\nError {e}");
+            }
+            if (isPlayers)
+            {
+                
                 root.NetworkObjectsSpawn.Add(gameObject);        // Maybe!? or should networkedObjs be for foreign objects?
                 Packet id_ping = new Packet(root.client, Bytes.Get(0), DataType.Int);
                 id_ping.Format();
@@ -42,6 +51,7 @@ namespace EasyNet.Behaviour
         }
         IEnumerator Age()
         {
+            yield return new WaitForSeconds(2f);
             while (true)
             {
                 yield return new WaitForSeconds(1f);
