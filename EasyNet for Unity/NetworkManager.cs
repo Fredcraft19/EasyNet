@@ -62,7 +62,8 @@ namespace EasyNet.Manager
         /// </summary>
         [Header("Debug Choice")]
         public DebugMode debugMode = DebugMode.None;
-        [HideInInspector]
+        
+        //[HideInInspector]
         public List<GameObject> NetworkObjectsSpawn = new List<GameObject>();
 
         // Used for Instantate("ObjectName")
@@ -73,10 +74,12 @@ namespace EasyNet.Manager
 
         private readonly Dictionary<string, Delegate> bindedRpcs = new Dictionary<string, Delegate>();
 
+        public float lerpSpeed = 0.05f;
         /// <summary>
         /// Objects that are lerping, usually from NetworkTransform
         /// </summary>
-        private List<LerpedObject> LerpingObjects = new List<LerpedObject>();
+        [Serialize]
+        public List<LerpedObject> LerpingObjects = new List<LerpedObject>();
 
         /// <summary>
         /// Network Variables that have been created
@@ -131,17 +134,19 @@ namespace EasyNet.Manager
                 }
                 Debug.Log("All Network Variables:\n" + str);
             }
-            List<LerpedObject> finished = new List<LerpedObject>();
-            foreach (LerpedObject obj in LerpingObjects)
+            for (int i = LerpingObjects.Count - 1; i >= 0; i--)
             {
+                LerpedObject obj = LerpingObjects[i];
+                obj.smoothTime = lerpSpeed * 0.05f;
+
                 if (!obj.done)
+                {
                     obj.Lerp();
+                }
                 else
-                    finished.Add(obj);
-            }
-            foreach (LerpedObject obj in finished)
-            {
-                LerpingObjects.Remove(obj);
+                {
+                    LerpingObjects.RemoveAt(i);
+                }
             }
         }
 
@@ -367,7 +372,7 @@ namespace EasyNet.Manager
                                 foreach (GameObject OBJ in NetworkObjectsSpawn)
                                 {
                                     var obj = OBJ.GetComponent<NetworkBehaviour>();
-                                    if (obj.ID == targetID && !obj.isPlayers)
+                                    if (obj.ID == targetID && !obj.IsPlayers)
                                     {
                                         bool canAdd = true;
                                         foreach (LerpedObject l in LerpingObjects)
@@ -428,26 +433,36 @@ namespace EasyNet.Manager
                                 if (splitted[0] == "REQUEST")
                                 {
                                     string SenderID = splitted[1];
-                                    if (client.ID == MasterID)  // original, first player
-                                    {
-                                        Debug.Log($"Sending out all Object Information to Client that requested.");
-                                        for (int i = 0; i < NetworkObjectsSpawn.Count; i++)
+                                    Debug.LogError($"Request recieved: Is Master: {IsMaster}");
+
+                                    Debug.LogError($"Sending out all Object Information to Client that requested.");
+
+                                        Debug.LogError($"DEBUG: NetworkObjectsSpawn Count: {NetworkObjectsSpawn.Count}");
+                                        Debug.LogError($"DEBUG: NetworkObjects (Prefabs) Count: {NetworkObjects.Count}");
+                                        foreach (GameObject spawnReq in NetworkObjectsSpawn)
                                         {
-                                            for (int x = 0; x < NetworkObjects.Count; x++)
+                                            NetworkBehaviour identity = spawnReq.GetComponent<NetworkBehaviour>();
+                                            int prefabIndex = identity.spawnID;
+
+                                            if (prefabIndex != -1 && identity.IsPlayers)
                                             {
-                                                if (NetworkObjectsSpawn[i] == NetworkObjects[x])
-                                                {
-                                                    Command Spawn = new Command(client, Convert.ToInt64(SenderID), "SPAWN", $"{x}");
-                                                    Spawn.Format();
-                                                    Packet output = new Packet(client, Spawn.GetBytes(), DataType.Custom);
-                                                    client.SendPacket(output);
-                                                }
+                                                Debug.LogWarning($"Sending SPAWN OBJ Index: {prefabIndex} to Client: {SenderID}");
+
+                                                Command spawnCmd = new Command(client, Convert.ToInt64(SenderID), "SPAWN", prefabIndex.ToString());
+                                                spawnCmd.Format();
+
+                                                Packet output = new Packet(client, spawnCmd.GetBytes(), DataType.Custom);
+                                                client.SendPacket(output);
+                                            }
+                                            else
+                                            {
+                                                Debug.LogWarning($"Object {spawnReq.name} not found in NetworkObjects list!");
                                             }
                                         }
-                                    }
                                 }
                                 else if (splitted[0] == "JOINED_ROOM")
                                 {
+                                    Debug.LogError("JOINED ROOM from 'JOINED_ROOM'");
                                     InRoom = true;
                                     ConnectedRoom = msg.Split('¬')[1];
                                 }
@@ -480,19 +495,22 @@ namespace EasyNet.Manager
                                 {
                                     string sender = splitted[1];
                                     string obj = splitted[2];
+                                    if (Convert.ToUInt32(obj) == ID)
+                                        obj = splitted[3];
                                     Debug.Log($"{sender}: Spawn Object [{obj}]");
 
                                     GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(obj)]);
                                     NetworkBehaviour identity = go.GetComponent<NetworkBehaviour>();
                                     NetworkObjectsSpawn.Add(go);
 
+                                    identity.spawnID = Convert.ToInt32(obj);
                                     identity.ID = GetObjectID(Convert.ToUInt32(sender), Convert.ToUInt32(obj));
                                     identity.OwnerID = pack.SenderID;
 
                                     if (client.ID == Convert.ToInt32(sender))
                                     {
 
-                                        identity.isPlayers = true;
+                                        identity.IsPlayers = true;
                                         identity.root = this;
                                         Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: True");
                                     }
@@ -618,6 +636,7 @@ namespace EasyNet.Manager
                             {
                                 Debug.Log($"Ignoring recieved Command Reason:\nTargetID: {command.TargetID} MyID: {client.ID}");
 
+
                             }
                         }
                         catch (Exception e)
@@ -636,6 +655,13 @@ namespace EasyNet.Manager
                                         ConnectedRoom = unknown.Split('¬')[1];
                                         Debug.Log("Room Joining Stage 3/3 Complete");
                                         InRoom = true;
+                                        if(client.ID != MasterID)
+                                        {
+                                            Command request = new Command(client, MasterID, "REQUEST", "");
+                                            request.Format();
+                                            Packet p = new Packet(client, request.GetBytes(), DataType.Custom);
+                                            client.SendPacket(p);
+                                        }
                                     }
                                 }
                                 catch (Exception b)
@@ -644,12 +670,71 @@ namespace EasyNet.Manager
                                 }
 
                             }
+                            else if(unknown.Contains("SPAWN"))
+                            {
+                                string[] splitted = unknown.Split(' ');
+                                string sender = splitted[1];
+                                string obj = splitted[2];
+                                Debug.Log($"{sender}: Spawn Object [{obj}]");
+
+                                GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(obj)]);
+                                NetworkBehaviour identity = go.GetComponent<NetworkBehaviour>();
+                                NetworkObjectsSpawn.Add(go);
+
+                                identity.spawnID = Convert.ToInt32(obj);
+                                identity.ID = GetObjectID(Convert.ToUInt32(sender), Convert.ToUInt32(obj));
+                                identity.OwnerID = pack.SenderID;
+
+                                if (ID == Convert.ToInt32(sender))
+                                {
+                                    identity.IsPlayers = true;
+                                    identity.root = this;
+                                    Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: True");
+                                }
+                                else
+                                {
+                                    Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: False");
+                                }
+                            }
                             else
                             {
                                 Debug.LogWarning($"Unrecognised Custom Packet sent:\nMessage/Commmand: {Bytes.ToString(pack.Data)}");
                             }
                         }
                         Debug.Log($"Packet Recieved -> {pack.dataType}: {Bytes.ToString(pack.Data)}");
+                        if (Bytes.ToString(pack.Data).Contains("REQUEST"))
+                        {
+                            string[] splitted = Bytes.ToString(pack.Data).Split(' ');
+
+
+                            string SenderID = splitted[1];
+                            Debug.LogError($"Request recieved: Is Master: {IsMaster}");
+
+                            Debug.LogError($"Sending out all Object Information to Client that requested.");
+
+                            Debug.LogError($"DEBUG: NetworkObjectsSpawn Count: {NetworkObjectsSpawn.Count}");
+                            Debug.LogError($"DEBUG: NetworkObjects (Prefabs) Count: {NetworkObjects.Count}");
+                            foreach (GameObject spawnReq in NetworkObjectsSpawn)
+                            {
+                                NetworkBehaviour identity = spawnReq.GetComponent<NetworkBehaviour>();
+                                int prefabIndex = identity.spawnID;
+
+                                if (prefabIndex != -1 && identity.IsPlayers)
+                                {
+                                    Debug.LogWarning($"Sending SPAWN OBJ Index: {prefabIndex} to Client: {SenderID}");
+
+                                    Command spawnCmd = new Command(client, Convert.ToInt64(SenderID), "SPAWN", prefabIndex.ToString());
+                                    spawnCmd.Format();
+
+                                    Packet output = new Packet(client, spawnCmd.GetBytes(), DataType.Custom);
+                                    client.SendPacket(output);
+                                }
+                                else
+                                {
+                                    Debug.LogWarning($"Object {spawnReq.name} not found in NetworkObjects list!");
+                                }
+                            }
+                        }
 
                     }
                     else if (DataType.SetID == pack.dataType)
