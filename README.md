@@ -1,11 +1,8 @@
-# EasyNet-for-Unity
-My work in progress Multiplayer solution for Unity
-
-# Server
-Just make a new C# project in VS Studio 2026 or whatever, and add EasyNet.cs and _ServerTerminal.cs into the project, run/compile it and it should say EasyNet Unity Server. It wont do anything unitil a client connects to it. All the server really does is respond to a few commands like JOINROOM and echos all other packets to all the other clients in the same room as the sender.
-# Client
-To make the client work for Unity, you need to make a Unity Project, make an empty game object with a conponent NetworkManager then its basically done.
-To Connect to the server and join a room, its networkManager.Connect() and .JoinRoom("RoomName").
+# EasyNet for Unity
+EasyNet for Unity is my solution to CCU limits and hard-to-learn syntax for other Unity Networking Solutions.
+This is easy to learn and to use.
+EasyNet itself if the 'Backend' of the Unity code, I have plans to make EasyNet work with C++ aswell as it would be cool to make basic multiplayer for OpenGL. *for a personal project
+If/When I do create a C++ version for Easynet, it will be published here aswell.
 
 # Note
 Over time, more features will be added. As the current features are barely for a functioning multiplayer game.
