@@ -13,3 +13,8 @@ To make a basic Mutliplayer engine that 'works' so noone is trapped from CCU Lim
 
 # Documentation
 Go to Documentation.MD for how to use this exactly.
+
+# Unity Template Project
+I recomend you use Unity version: 2022.3.62f2
+
+As this is the version i used for the creation of this.
