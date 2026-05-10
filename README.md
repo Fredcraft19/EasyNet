@@ -6,6 +6,7 @@ Just make a new C# project in VS Studio 2026 or whatever, and add EasyNet.cs and
 # Client
 
 How to use all the features for the clients.
+
 First you need to make a Unity Project, make an empty game object with a conponent NetworkManager.
 ### RPCs
 
