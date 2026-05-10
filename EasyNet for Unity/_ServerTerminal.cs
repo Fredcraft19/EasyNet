@@ -11,8 +11,30 @@ server.managed = true;
 uint MasterID = 2;
 
 Dictionary<uint, string> clientsInRooms = new Dictionary<uint, string>();
-
 string playerList = "";
+
+uint NewPacketID()
+{
+    byte[] bytes = Guid.NewGuid().ToByteArray();
+
+    uint part1 = BitConverter.ToUInt32(bytes, 0);
+    uint part2 = BitConverter.ToUInt32(bytes, 4);
+    uint part3 = BitConverter.ToUInt32(bytes, 8);
+    uint part4 = BitConverter.ToUInt32(bytes, 12);
+
+    return part1 ^ part2 ^ part3 ^ part4;
+}
+string GetPlayerList(string name)
+{
+    string list = "";
+    foreach(uint id  in clientsInRooms.Keys)
+    {
+        if (clientsInRooms[id] == name)
+            list += $"¬{id}";
+
+    }
+    return list;
+}
 
 while (server.clients.Count == 0)
 {
@@ -38,6 +60,14 @@ while (true)
     else if (uin == "clear")
     {
         Console.Clear();
+    }
+    else if(uin == "clients")
+    {
+        Console.WriteLine("Clients list:");
+        foreach(uint id in clientsInRooms.Keys)
+        {
+            Console.WriteLine($"ID: {id} In Room: {clientsInRooms[id]}");
+        }
     }
     else if (uin == "ping")
     {
@@ -70,19 +100,10 @@ async Task ClearCache()
         Console.ForegroundColor = ConsoleColor.Blue;
         Console.WriteLine("Main Loop Intacked");
         Console.ResetColor();
-        if (serverTick > 9000000000000000000)
-        {
-            serverTick = -9000000000000000000;
-        }
-        playerList = "";
 
-        foreach (uint id in server.clients.Keys)
-        {
-            playerList += $"-{id}";
-        }
         MasterID = server.GetMasterClient();
 
-        foreach (uint id in clientsInRooms.Keys)
+        foreach (uint id in clientsInRooms.Keys.ToList())
         {
             if (!server.clients.ContainsKey(id))
             {
@@ -99,7 +120,7 @@ async Task ClearCache()
             Console.WriteLine($"Processing Packet: {packet.PacketID}");
             Console.ResetColor();
 
-            if (server.clients[packet.SenderID] == null)
+            if (!server.clients.ContainsKey(packet.SenderID))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Packet Recieved from Disconected Client");
@@ -127,7 +148,10 @@ async Task ClearCache()
                     foreach (string s in splitted) {
                         msg += s + " ";
                     }
-                    msg.Replace("PLAYER_LIST", playerList);
+
+                    playerList = GetPlayerList(clientsInRooms[packet.SenderID]);
+
+                    msg = msg.Replace("PLAYER_LIST", playerList);
                     packet.Data = Bytes.Get(msg);
                 }
                 Console.ForegroundColor = ConsoleColor.Magenta;//3
@@ -149,12 +173,11 @@ async Task ClearCache()
                         string roomToJoin = Bytes.ToString(packet.Data).Split('¬')[1];
                         clientsInRooms[packet.SenderID] = roomToJoin;
                         Console.ForegroundColor = ConsoleColor.Green;
-                        uint senderID = packet.SenderID;
-                        packet = new Packet(server, Bytes.Get($"JOINED_ROOM¬{roomToJoin}¬{packet.SenderID}"), DataType.Custom);
-                        packet.SenderID = senderID;
-                        packet.target = server.clients[packet.SenderID];
-                        Console.WriteLine($"Added Client ID: {packet.SenderID} To Room: {clientsInRooms[packet.SenderID]}");
-                        server.notSentPackets.TryAdd(packet.PacketID, packet);
+                        Packet joinRoomResponse = new Packet(server, Bytes.Get($"JOINED_ROOM¬{roomToJoin}¬{packet.SenderID}" + $"¬{packet.SenderID}"), DataType.Custom);
+                        joinRoomResponse.SenderID = packet.SenderID;
+                        joinRoomResponse.target = server.clients[packet.SenderID];
+                        Console.WriteLine($"Added Client ID: {joinRoomResponse.SenderID} To Room: {clientsInRooms[joinRoomResponse.SenderID]}");
+                        server.notSentPackets.TryAdd(joinRoomResponse.PacketID, packet);
                         Console.ResetColor();
                     }
                 }
@@ -183,10 +206,7 @@ async Task ClearCache()
 
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("SERVER_TICK", serverTick.ToString()));
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("PLAYER_LIST", playerList));
-                Console.ForegroundColor = ConsoleColor.Yellow;
-
-                Console.WriteLine($"Echoing Packet of:\nType: {packet.dataType}\n Data: {Bytes.ToString(packet.Data)}\nto room: {clientsInRooms[packet.SenderID]}");
-                Console.ForegroundColor = ConsoleColor.White;
+                
                 packet.rawData = packet.GetBytes();
                 packet.Format();
                 Console.ForegroundColor = ConsoleColor.Magenta;//7
@@ -202,9 +222,22 @@ async Task ClearCache()
                         {
                             if (client.Value == senderRoom)
                             {
-                                packet.target = server.clients[client.Key];
-                                server.notSentPackets.TryAdd(packet.PacketID, packet);
+                                Packet outbound = new Packet(server, packet.Data, packet.dataType);
+
+                                outbound.target = server.clients[client.Key];
+                                outbound.PacketID = NewPacketID();
+                                outbound.SenderID = packet.SenderID;
+
+                                if (Bytes.ToString(outbound.Data).Contains("JOINROOM"))
+                                {
+                                    outbound.Data = Bytes.Get(Bytes.ToString(outbound.Data) + $"¬{packet.SenderID}");
+                                }
+
+                                server.notSentPackets.TryAdd(outbound.PacketID, outbound);
+                                Console.ForegroundColor = ConsoleColor.Yellow;
                                 Console.WriteLine($"Sending Packet to: {client.Key} in: {senderRoom}");
+                                Console.WriteLine($"Echoing Packet of:\nType: {packet.dataType}\n Data: {Bytes.ToString(packet.Data)}\nto room: {clientsInRooms[packet.SenderID]}");
+                                Console.ForegroundColor = ConsoleColor.White;
                             }
                         }
                     }
@@ -234,13 +267,22 @@ async Task ClearCache()
             else
             {
                 Console.WriteLine($"Echoing Packet of type: {packet.dataType} ");
-                if (clientsInRooms.TryGetValue(packet.SenderID, out string senderRoom))
+                if (clientsInRooms.TryGetValue(packet.SenderID, out var senderRoom))
                 {
                     foreach (var client in clientsInRooms.ToList())
                     {
                         if (client.Value == senderRoom)
                         {
-                            server.notSentPackets.TryAdd(packet.PacketID, packet);
+                            Packet outbound = new Packet(server, packet.Data, packet.dataType);
+
+                            outbound.target = server.clients[client.Key];
+                            outbound.PacketID = NewPacketID();
+                            outbound.SenderID = packet.SenderID;
+
+                            server.notSentPackets.TryAdd(outbound.PacketID, outbound);
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Console.WriteLine($"Sending Packet to: {client.Key} in: {senderRoom}\nData: {Bytes.ToString(outbound.Data)}");
+                            Console.ResetColor();
                         }
                     }
                 }
@@ -257,7 +299,7 @@ async Task ClearCache()
 
         }
         serverTick++;
-        await Task.Delay(100);
+        await Task.Delay(8);    // 125/Second (125 tickrate)
     }
 }
 
