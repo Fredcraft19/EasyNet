@@ -2,17 +2,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
-using EasyNet.Behaviour;
+using EasyNet.View;
 using System.Text;
 using System.Threading.Tasks;
 using EasyNet_BackEnd.Data;
 using EasyNet;
+using NetworkView = EasyNet.View.NetworkView;
 
 
 class NetworkTransform : MonoBehaviour
 {
-    public NetworkBehaviour root;
-
+    public EasyNet.View.NetworkView root;
     [Header("Sync Rules")]
     public bool TrackingPosition;
     public bool TrackingRotation;
@@ -24,7 +24,7 @@ class NetworkTransform : MonoBehaviour
 
     private void Awake()
     {
-        root = GetComponent<NetworkBehaviour>();
+        root = GetComponent<NetworkView>();
     }
     void Start()
     {
@@ -35,7 +35,7 @@ class NetworkTransform : MonoBehaviour
     {
         while (true)
         {
-            if (root == null || root.root == null || !root.IsPlayers)
+            if (root == null || root.Network == null || !root.IsPlayers)
             {
                 yield return new WaitForSeconds(1f);
                 continue;
@@ -66,24 +66,24 @@ class NetworkTransform : MonoBehaviour
 
     public void SendPosition()
     {
-        Command updatePosition = new Command(root.root.client, root.ID, "P", $"{position.x} {position.y} {position.z}");
+        Command updatePosition = new Command(root.Network.client, root.ID, "P", $"{position.x} {position.y} {position.z}");
         updatePosition.Format();
         Packet output = updatePosition.GetPacket();
-        root.root.client.notSentPackets.TryAdd(output.PacketID, output);
+        root.Network.client.notSentPackets.TryAdd(output.PacketID, output);
         Debug.Log($"Sent My Position: {Bytes.ToString(output.Data)}");
     }
     public void SendRotation()
     {
-        Command updatePosition = new Command(root.root.client, root.ID, "R", $"{rotation.x} {rotation.y} {rotation.z} {rotation.w}");
+        Command updatePosition = new Command(root.Network.client, root.ID, "R", $"{rotation.x} {rotation.y} {rotation.z} {rotation.w}");
         updatePosition.Format();
         Packet output = updatePosition.GetPacket();
-        root.root.client.notSentPackets.TryAdd(output.PacketID, output);
+        root.Network.client.notSentPackets.TryAdd(output.PacketID, output);
     }
     public void SendScale()
     {
-        Command updatePosition = new Command(root.root.client, root.ID, "S", $"{scale.x} {scale.y} {scale.z}");
+        Command updatePosition = new Command(root.Network.client, root.ID, "S", $"{scale.x} {scale.y} {scale.z}");
         updatePosition.Format();
         Packet output = updatePosition.GetPacket();
-        root.root.client.notSentPackets.TryAdd(output.PacketID, output);
+        root.Network.client.notSentPackets.TryAdd(output.PacketID, output);
     }
 }
