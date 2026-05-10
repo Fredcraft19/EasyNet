@@ -14,18 +14,34 @@ namespace EasyNet.Behaviour
     class NetworkBehaviour : MonoBehaviour
     {
         public NetworkManager root;
-
+        /// <summary>
+        /// The Unique ID of the network object
+        /// </summary>
         public long ID;
+        /// <summary>
+        /// The Client ID of the person who Instantiated the object (who owns it)
+        /// </summary>
         public uint OwnerID;
+        /// <summary>
+        /// The Object Reference from NetworkObjects list in NetworkManager
+        /// </summary>
+        public int spawnID;
 
+        /// <summary>
+        /// Is Connected to the EasyNet Unity Server
+        /// </summary>
         public bool Connected;
-        public bool isPlayers = false;
+        /// <summary>
+        /// Is owned by the client
+        /// </summary>
+        public bool IsPlayers = false;
 
-        private TextMeshProUGUI ageDisplay;
 
         [Header("Debug")]
         public bool showEndpoint = false;
         public int age;
+        private TextMeshProUGUI ageDisplay;
+
 
         private void Awake()
         {
@@ -39,7 +55,7 @@ namespace EasyNet.Behaviour
             {
                 Debug.LogWarning($"Already made varaible, age:\nError {e}");
             }
-            if (isPlayers)
+            if (IsPlayers)
             {
                 
                 root.NetworkObjectsSpawn.Add(gameObject);        // Maybe!? or should networkedObjs be for foreign objects?
@@ -55,7 +71,7 @@ namespace EasyNet.Behaviour
             while (true)
             {
                 yield return new WaitForSeconds(1f);
-                if (isPlayers)
+                if (IsPlayers)
                 {
                     age++;
                     root.NetworkVariable["age"].SetValue(age.ToString());
@@ -72,13 +88,13 @@ namespace EasyNet.Behaviour
 
         private void Update()
         {
-            if (!GetComponent<NetworkBehaviour>().isPlayers) { return; }
+            if (!GetComponent<NetworkBehaviour>().IsPlayers) { return; }
             if (showEndpoint)
             {
                 showEndpoint = false;
                 Debug.LogWarning($"Endpoint: {(IPEndPoint)root.client.client._socket.LocalEndPoint}");
             }
-            if (root.client != null && isPlayers)
+            if (root.client != null && IsPlayers)
             {
                 Connected = root.client.isConnected();
 
