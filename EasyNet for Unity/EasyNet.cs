@@ -1,7 +1,6 @@
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using EasyNet_BackEnd.UDP;
-using EasyNet_BackEnd.Additions;
 
 using System;
 using System.Buffers.Binary;
@@ -10,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -173,10 +173,7 @@ namespace EasyNet_BackEnd
             public uint ID = 1;
             public ConcurrentQueue<Packet> cache = new ConcurrentQueue<Packet>();
             public Dictionary<uint, EndPoint> clients = new Dictionary<uint, EndPoint>();
-            public ConcurrentDictionary<long, Packet> notSentPackets = new ConcurrentDictionary<long, Packet>();
-
-            public List<Room> rooms = new List<Room>();
-            
+            public ConcurrentDictionary<long, Packet> notSentPackets = new ConcurrentDictionary<long, Packet>();            
 
             public bool DEBUG_LOG;
             public bool managed = false;
@@ -433,14 +430,6 @@ namespace EasyNet_BackEnd
             }
         }
     }
-    namespace Additions
-    {
-        public class Room
-        {
-            public string name;
-            public int playerCount;
-        }
-    }
 
     namespace Data
     {
@@ -573,8 +562,13 @@ namespace EasyNet_BackEnd
                 _buffer_recv = new byte[2048];
                 _buffer_recv_segment = new ArraySegment<byte>(_buffer_recv);
                 _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                const int SIO_UDP_CONNRESET = -1744830452;
-                _socket.IOControl((IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    const int SIO_UDP_CONNRESET = -1744830452;
+                    _socket.IOControl((IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
+                }
+
                 _socket.Bind(new IPEndPoint(IPAddress.Any, PORT));
             }
             public async Task SendTo(EndPoint recipeint, byte[] data)
@@ -595,8 +589,10 @@ namespace EasyNet_BackEnd
                 _buffer_recv_segment = new ArraySegment<byte>(_buffer_recv);
                 _ep = new IPEndPoint(address, port);
                 _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
                 const int SIO_UDP_CONNRESET = -1744830452;
                 _socket.IOControl((IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
+
                 _socket.Bind(new IPEndPoint(IPAddress.Any, 0));
             }
             public async Task Send(byte[] data)
