@@ -8,6 +8,18 @@ It should say EasyNet Unity Server.
 It wont do anything unitl a client speaks to it.
 It is recomended for the server to be ran on an old laptop, server, or your PC (for testing)
 
+Once you have the server.
+Connect to the server with:
+```csharp
+NetworkManager Network;
+Network.Connect();
+```
+
+Join a room with:
+```csharp
+Network.JoinRoom("Room Name");
+```
+
 ### RPCs
 How to create and use RPC's?
 First, in any game object. Create your method, make sure its no return type. Like this:
