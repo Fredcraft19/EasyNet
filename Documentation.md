@@ -11,7 +11,7 @@ void MyRPC(string message)
 ```
 Then you have to bind it. Make sure its binded before the RPC can ever be called. Like in Awake() or Start()
 ```csharp
-NetworkManager Network;
+NetworkManager Network;  // Network Manager Reference
 void Start()
 {
   Network.BindRPC<string>("rpcName", MyRPC);
@@ -29,3 +29,47 @@ RPCTarget.x is the who the RPC is going to, it has Master, AllByServer, All, Oth
 "Hello Guys!" is the parameter into MyRPC().
 
 ### Network Varaibles
+How to create and use Network-Synced Variables?
+
+First, make the variable with:
+```csharp
+NetworkManager Network;  // Network Manager Reference
+Network.NetworkVariable.Add("message", new NetworkVariable<string>(Network, "message"));
+```
+
+To update it use:
+```csharp
+Network.NetworkVariable["message"].SetValue("Network-Synced Message!");
+```
+
+To Read it use:
+```csharp
+Network.GetVariable<string>("message");
+```
+Why is there <string>?
+You need to specify the variable type then it can return it.
+
+###  Network Conponents
+
+To use a network conponent. Ensure there is a Network Manager in your scene.
+
+Get your game object and add conponents:
+Network Behaviour and Network Transform (or any conponent) to the game object.
+Make sure the object is Spawned in and not already in the scene as that will cause weird ownership between clients.
+
+I've made sure to keep the Network Conponents like Transform as simple and easy as possible. Literally no code required.
+
+### Network Object
+To spawn a Network Object, turn a game object into a prefab somewhere in your assets folder. Then in NetworkManager, add it to the NetworkObjects.
+If you want to use NetworkManagers .SpawnPlayer() then ensure your player prefab is the first element in your NetworkObjects list (make sure its Element 0).
+
+How to spawn the object in for use?
+```csharp
+NetworkManager Network;  // Network Manager Reference
+Network.Instantiate("OObjectName");    // Spawn by Object Name
+Network.Instantiate(1)                 // Spawn by Object ID
+```
+
+Whatever client runs Network.Instatiate owns the object.
+
+If the client leaves. Their spawned objects should disapear but in future, it could be in NetworkBehaviour and to give it settings like: Destroy after owner leaves, if this is off, the owner will be changed. Right now I am focused on making this work fully than adding more features.
