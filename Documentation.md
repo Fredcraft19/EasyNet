@@ -39,7 +39,7 @@ RPCTarget.x is the who the RPC is going to, it has Master, AllByServer, All, Oth
 ### Network Varaibles
 How to create and use Network-Synced Variables?
 
-First, make the variable with:
+First, create and register the variable with:
 ```csharp
 NetworkManager Network;  // Network Manager Reference
 Network.NetworkVariable.Add("message", new NetworkVariable<string>(Network, "message"));
