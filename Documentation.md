@@ -17,7 +17,7 @@ void Start()
   Network.BindRPC<string>("rpcName", MyRPC);
 }
 ```
-Why is there <string> ?
+Why is there string specified for the BindRPC (BindRPC<string>)?
 You need to specify each parameter type in order.
 
 Then to call the parameter do this:
