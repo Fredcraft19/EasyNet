@@ -4,6 +4,7 @@ using EasyNet_BackEnd.System;
 using System;
 using System.Text;
 using UnityEngine;
+using NetworkView = EasyNet.View.NetworkView;
 
 namespace EasyNet
 {
@@ -116,6 +117,7 @@ namespace EasyNet
     public abstract class NetworkVariableBase
     {
         public string name;
+        public long tick = -1;
         public abstract object BoxedValue { get; set; }
         internal abstract void SetValue(string value);
         internal abstract void SetLocalValue(string value);
