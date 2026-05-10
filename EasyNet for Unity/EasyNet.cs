@@ -590,8 +590,11 @@ namespace EasyNet_BackEnd
                 _ep = new IPEndPoint(address, port);
                 _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
-                const int SIO_UDP_CONNRESET = -1744830452;
-                _socket.IOControl((IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
+                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    const int SIO_UDP_CONNRESET = -1744830452;
+                    _socket.IOControl((IOControlCode)SIO_UDP_CONNRESET, new byte[] { 0, 0, 0, 0 }, null);
+                }
 
                 _socket.Bind(new IPEndPoint(IPAddress.Any, 0));
             }
