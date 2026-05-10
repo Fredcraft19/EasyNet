@@ -4,8 +4,9 @@ My work in progress Multiplayer solution for Unity
 # Server
 Just make a new C# project in VS Studio 2026 or whatever, and add EasyNet.cs and _ServerTerminal.cs into the project, run/compile it and it should say EasyNet Unity Server. It wont do anything unitil a client connects to it. All the server really does is respond to a few commands like JOINROOM and echos all other packets to all the other clients in the same room as the sender.
 # Client
+How to use all the features for the clients.
+First you need to make a Unity Project, make an empty game object with a conponent NetworkManager.
 ### RPCs
-RPCS here
 
 # Note
 Over time, more features will be added. As the current features are obviously not enough for a functioning multiplayer game.
