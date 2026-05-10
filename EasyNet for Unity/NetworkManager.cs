@@ -9,6 +9,7 @@ using System.Net;
 using UnityEngine;
 using Newtonsoft.Json;
 using Unity.VisualScripting;
+using EasyNet_Debugging;
 
 namespace EasyNet.Manager
 {
@@ -46,10 +47,10 @@ namespace EasyNet.Manager
         public uint MasterID = 0;
 
         [Header("Settings")]
-        public bool LoginOnAwake = false;
+        public bool connectOnAwake = false;
 
 
-
+        [HideInInspector]
         public long serverTick;
         public int tickSpeed;
         /// <summary>
@@ -59,27 +60,29 @@ namespace EasyNet.Manager
         /// <summary>
         /// Objects that have been spawned in by EasyNet
         /// </summary>
-        [Header("Debugging Lists")]
+        [Header("Debug Choice")]
+        public DebugMode debugMode = DebugMode.None;
+        [HideInInspector]
         public List<GameObject> NetworkObjectsSpawn = new List<GameObject>();
 
         // Used for Instantate("ObjectName")
         private Dictionary<string, GameObject> networkObjectsWithNames = new Dictionary<string, GameObject>();
 
 
-        public List<long> PlayerList = new List<long>();
+        private List<long> PlayerList = new List<long>();
 
         private readonly Dictionary<string, Delegate> bindedRpcs = new Dictionary<string, Delegate>();
 
         /// <summary>
         /// Objects that are lerping, usually from NetworkTransform
         /// </summary>
-        public List<LerpedObject> LerpingObjects = new List<LerpedObject>();
+        private List<LerpedObject> LerpingObjects = new List<LerpedObject>();
 
         /// <summary>
         /// Network Variables that have been created
         /// </summary>
         public Dictionary<string, NetworkVariableBase> NetworkVariable = new Dictionary<string, NetworkVariableBase>();
-        public bool showNetVar = false;
+        private bool showNetVar = false;
 
         private bool SpawnedPlayer = false;
 
@@ -94,7 +97,7 @@ namespace EasyNet.Manager
 
             FillNetworkObjectsName();
 
-            if (LoginOnAwake)
+            if (connectOnAwake)
             {
                 if (ID != 2 || ID != 0)
                 {
@@ -114,6 +117,7 @@ namespace EasyNet.Manager
         }
         void Update()
         {
+            debug.debugmode = debugMode;
             if (client.ID != 0)
             {
                 IsConnected = true;
@@ -347,6 +351,7 @@ namespace EasyNet.Manager
                         try
                         {
                             command = new Command(pack, client);
+
                             string msg = Bytes.ToString(pack.Data);
                             string[] splitted = msg.Split(' ');
 
@@ -358,6 +363,7 @@ namespace EasyNet.Manager
 
                                 Debug.Log($"{senderID} to {targetID}: {splitted[0]} {newPos.x}, {newPos.y}, {newPos.z}");
 
+                                Debug.Log("FIND OBJ TO LERP");
                                 foreach (GameObject OBJ in NetworkObjectsSpawn)
                                 {
                                     var obj = OBJ.GetComponent<NetworkBehaviour>();
@@ -370,13 +376,21 @@ namespace EasyNet.Manager
                                             {
                                                 canAdd = false;
                                                 l.target = newPos;
+                                                Debug.Log("FIND OBJ TO LERP");
                                                 break;
                                             }
                                         }
                                         if (canAdd)
+                                        {
+                                            Debug.Log("FOUND OBJ. LERPING!");
+
                                             LerpingObjects.Add(new LerpedObject(OBJ, newPos));
+                                        }
                                     }
                                 }
+                                Debug.Log("LOOP FINISHED, MOVED?");
+
+
                             }
                             else if (splitted[0] == "R")
                             {
@@ -472,7 +486,7 @@ namespace EasyNet.Manager
                                     NetworkBehaviour identity = go.GetComponent<NetworkBehaviour>();
                                     NetworkObjectsSpawn.Add(go);
 
-                                    identity.ID = (pack.PacketID * 7);
+                                    identity.ID = GetObjectID(Convert.ToUInt32(sender), Convert.ToUInt32(obj));
                                     identity.OwnerID = pack.SenderID;
 
                                     if (client.ID == Convert.ToInt32(sender))
@@ -489,7 +503,7 @@ namespace EasyNet.Manager
                                 }
                                 else if (splitted[0] == "ServerCommand")
                                 {
-                                    string[] playerList = msg.Split('-');
+                                    string[] playerList = msg.Split('¬');
                                     playerList[0] = uint.MaxValue.ToString();
                                     string output = "";
                                     foreach (string s in playerList)
@@ -610,23 +624,29 @@ namespace EasyNet.Manager
                         {
                             Debug.LogWarning($"Error when turning recieved command/string into a command format!\n\nError: {e}");
 
-                            Debug.Log($"Unrecognised Custom Packet sent:\nMessage/Commmand: {Bytes.ToString(pack.Data)}");
                             string unknown = Bytes.ToString(pack.Data);
-                            if (unknown.Contains("JOINED_ROOM"))
+                            if (unknown.Contains("JOINROOM"))
                             {
                                 try
                                 {
+                                    Debug.Log("Room Joining Stage 1/3");
                                     if (Convert.ToInt64(unknown.Split('¬')[2]) == ID)
                                     {
+                                        Debug.Log("Room Joining Stage 2/3");
                                         ConnectedRoom = unknown.Split('¬')[1];
+                                        Debug.Log("Room Joining Stage 3/3 Complete");
                                         InRoom = true;
                                     }
                                 }
                                 catch (Exception b)
                                 {
-                                    Debug.LogError(b);
+                                    Debug.LogError($"Error in getting Room Data:\nError: {b}");
                                 }
 
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"Unrecognised Custom Packet sent:\nMessage/Commmand: {Bytes.ToString(pack.Data)}");
                             }
                         }
                         Debug.Log($"Packet Recieved -> {pack.dataType}: {Bytes.ToString(pack.Data)}");
@@ -659,6 +679,11 @@ namespace EasyNet.Manager
                 }
 
             }
+        }
+        public uint GetObjectID(uint senderID, uint objectID)
+        {
+
+            return (senderID << 16) | (objectID & 0xFFFF);
         }
 
     }
