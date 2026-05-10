@@ -66,7 +66,7 @@ If you want to use NetworkManagers .SpawnPlayer() then ensure your player prefab
 How to spawn the object in for use?
 ```csharp
 NetworkManager Network;  // Network Manager Reference
-Network.Instantiate("OObjectName");    // Spawn by Object Name
+Network.Instantiate("ObjectName");     // Spawn by Object Name
 Network.Instantiate(1)                 // Spawn by Object ID
 ```
 
