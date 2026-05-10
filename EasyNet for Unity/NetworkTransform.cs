@@ -17,10 +17,10 @@ class NetworkTransform : MonoBehaviour
     public bool TrackingPosition;
     public bool TrackingRotation;
     public bool TrackingScale;
-    [Header("Data")]
-    public UnityEngine.Vector3 position;
-    public Quaternion rotation;
-    public UnityEngine.Vector3 scale;
+    //[Header("Debug Data")]
+    private UnityEngine.Vector3 position;
+    private Quaternion rotation;
+    private UnityEngine.Vector3 scale;
 
     private void Awake()
     {
@@ -35,12 +35,12 @@ class NetworkTransform : MonoBehaviour
     {
         while (true)
         {
-            if (root == null || root.root == null || !root.isPlayers)
+            if (root == null || root.root == null || !root.IsPlayers)
             {
                 yield return new WaitForSeconds(1f);
                 continue;
             }
-            yield return new WaitForSeconds(1f / (float)root.root.tickSpeed);
+            yield return new WaitForSeconds(1f / 40f);
 
             if (position != transform.position)
             {
