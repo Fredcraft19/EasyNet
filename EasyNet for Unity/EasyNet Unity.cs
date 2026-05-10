@@ -84,22 +84,33 @@ namespace EasyNet
         public UnityEngine.Vector3 target;
         public bool done = false;
 
-        private float lerpDuration = 0.1f;
-        private float time = 0f;
+        private UnityEngine.Vector3 currentVelocity;
+
+        public float smoothTime = 0.05f;
 
         public LerpedObject(GameObject go, UnityEngine.Vector3 _target)
         {
             obj = go;
             target = _target;
+            // Start velocity at zero
+            currentVelocity = UnityEngine.Vector3.zero;
         }
 
         public void Lerp()
         {
-            time += Time.deltaTime;
-            float t = time / lerpDuration;
-            obj.transform.position = UnityEngine.Vector3.Lerp(obj.transform.position, target, t);
-            if (t >= 1)
+            if (obj == null) return;
+
+            obj.transform.position = UnityEngine.Vector3.SmoothDamp(
+                obj.transform.position,
+                target,
+                ref currentVelocity,
+                smoothTime
+            );
+
+            if (UnityEngine.Vector3.Distance(obj.transform.position, target) < 0.01f)
+            {
                 done = true;
+            }
         }
     }
     public abstract class NetworkVariableBase
