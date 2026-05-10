@@ -31,7 +31,7 @@ void MyRPC(string message)
 ```
 Then you have to bind it. Make sure its binded before the RPC can ever be called. Like in Awake() or Start()
 ```csharp
-NetworkManager Network;  // Network Manager Reference
+NetworkView Network;  // Network View Reference
 void Start()
 {
   Network.BindRPC<string>("rpcName", MyRPC);
@@ -53,7 +53,7 @@ How to create and use Network-Synced Variables?
 
 First, create and register the variable with:
 ```csharp
-NetworkManager Network;  // Network Manager Reference
+NetworkView Network;  // Network View Reference
 Network.NetworkVariable.Add("message", new NetworkVariable<string>(Network, "message"));
 ```
 
