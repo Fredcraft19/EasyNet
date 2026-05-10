@@ -1,16 +1,17 @@
 using EasyNet;
-using EasyNet.Behaviour;
+using EasyNet.View;
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
+using EasyNet_Debugging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net;
-using UnityEngine;
-using Newtonsoft.Json;
 using Unity.VisualScripting;
-using EasyNet_Debugging;
-
+using UnityEngine;
+using NetworkView = EasyNet.View.NetworkView;
 namespace EasyNet.Manager
 {
     public class NetworkManager : MonoBehaviour
@@ -62,7 +63,7 @@ namespace EasyNet.Manager
         /// </summary>
         [Header("Debug Choice")]
         public DebugMode debugMode = DebugMode.None;
-        
+
         //[HideInInspector]
         public List<GameObject> NetworkObjectsSpawn = new List<GameObject>();
 
@@ -72,7 +73,6 @@ namespace EasyNet.Manager
 
         private List<long> PlayerList = new List<long>();
 
-        private readonly Dictionary<string, Delegate> bindedRpcs = new Dictionary<string, Delegate>();
 
         public float lerpSpeed = 0.05f;
         /// <summary>
@@ -80,12 +80,6 @@ namespace EasyNet.Manager
         /// </summary>
         [Serialize]
         public List<LerpedObject> LerpingObjects = new List<LerpedObject>();
-
-        /// <summary>
-        /// Network Variables that have been created
-        /// </summary>
-        public Dictionary<string, NetworkVariableBase> NetworkVariable = new Dictionary<string, NetworkVariableBase>();
-        private bool showNetVar = false;
 
         private bool SpawnedPlayer = false;
 
@@ -124,15 +118,6 @@ namespace EasyNet.Manager
             if (client.ID != 0)
             {
                 IsConnected = true;
-            }
-            if (showNetVar)
-            {
-                string str = "";
-                foreach (var name in NetworkVariable.Keys)
-                {
-                    str += $"Name: {name} Value {GetVariable<int>("name")}\n";
-                }
-                Debug.Log("All Network Variables:\n" + str);
             }
             for (int i = LerpingObjects.Count - 1; i >= 0; i--)
             {
@@ -203,21 +188,6 @@ namespace EasyNet.Manager
             IsMaster = placeholder;
             MasterID = placeholder2;
         }
-        public T GetVariable<T>(string key)
-        {
-            if (NetworkVariable.ContainsKey(key))
-                return ((NetworkVariable<T>)NetworkVariable[key]).Value;
-            else
-            {
-                Debug.Log($"Cant find referenced Variable at '{key}'. Creating new one.");
-                NetworkVariable.Add(key, new NetworkVariable<T>(this, key));
-                return ((NetworkVariable<T>)NetworkVariable[key]).Value;
-            }
-        }
-        public void RegisterVariable(NetworkVariableBase netVar)
-        {
-            NetworkVariable[netVar.name] = netVar;
-        }
         public void Instantiate(int index)
         {
             Command spawn = new Command(client, 0, "SPAWN", index.ToString());
@@ -239,79 +209,6 @@ namespace EasyNet.Manager
             for (int i = 0; i < NetworkObjects.Count; i++)
             {
                 networkObjectsWithNames[NetworkObjects[i].name] = NetworkObjects[i];
-            }
-        }
-
-
-        /// <summary>
-        /// Calls an RPC
-        /// </summary>
-        /// <param name="RPC_name">Name of RPC you want to call (name set in BindRPC).</param>
-        /// <param name="target">Who you want to send RPC to.</param>
-        /// <param name="args">Parameters for RPC if needed. They have to be serializable.</param>
-        public void RPC(string rpcName, RPCTarget target, params object[] args)
-        {
-            string jsonParams = JsonConvert.SerializeObject(args);
-            Command CallRPC = new Command(client, 0, "RPC", $"¬{rpcName}¬{(int)target}¬{jsonParams}");
-            CallRPC.Format();
-            Packet output = new Packet(client, CallRPC.GetBytes(), DataType.Custom);
-            client.SendPacket(output);
-
-            if (RPCTarget.All == target)
-                RunRPC(rpcName, args);
-        }
-
-        /// <summary>
-        /// When binding an RPC, the method must be return type void.
-        /// </summary>
-        /// <param name="RPC_name">Set the name of the RPC.</param>
-        /// <param name="Method">The method you want to be able to call by the RPC name.</param>
-        public void BindRPC(string rpcName, Delegate method)
-        {
-            if (rpcName == null || rpcName == " ")
-            {
-                Debug.LogError("Actual RPC name needed!");
-                return;
-            }
-            if (!bindedRpcs.ContainsKey(rpcName))
-            {
-                bindedRpcs[rpcName] = method;
-            }
-            else
-            {
-                Debug.LogError($"RPC already exists with name {rpcName}!");
-            }
-        }
-        public void BindRPC(string rpcName, Action m) => BindRPC(rpcName, (Delegate)m);
-        public void BindRPC<T>(string rpcName, Action<T> m) => BindRPC(rpcName, (Delegate)m);
-        public void BindRPC<T1, T2>(string rpcName, Action<T1, T2> m) => BindRPC(rpcName, (Delegate)m);
-        public void BindRPC<T1, T2, T3>(string rpcName, Action<T1, T2, T3> m) => BindRPC(rpcName, (Delegate)m);
-        public void BindRPC<T1, T2, T3, T4>(string rpcName, Action<T1, T2, T3, T4> m) => BindRPC(rpcName, (Delegate)m);
-        public void BindRPC<T1, T2, T3, T4, T5>(string rpcName, System.Action<T1, T2, T3, T4, T5> m) => BindRPC(rpcName, (Delegate)m);
-
-        private void RunRPC(string rpcName, params object[] args)
-        {
-            if (bindedRpcs.TryGetValue(rpcName, out Delegate method))
-            {
-                try
-                {
-                    var methodParams = method.Method.GetParameters();
-                    object[] convertedArgs = new object[args.Length];
-
-                    for (int i = 0; i < args.Length; i++)
-                    {
-                        convertedArgs[i] = System.Convert.ChangeType(args[i], methodParams[i].ParameterType);
-                    }
-                    method.DynamicInvoke(convertedArgs);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError($"Error trying to execute RPC: '{rpcName}'. \nError: {e}");
-                }
-            }
-            else
-            {
-                Debug.LogWarning($"RPC Command '{rpcName}' recieved but no RPC was bound, use BindRPC('{rpcName}', Delegate) to do so");
             }
         }
 
@@ -371,7 +268,7 @@ namespace EasyNet.Manager
                                 Debug.Log("FIND OBJ TO LERP");
                                 foreach (GameObject OBJ in NetworkObjectsSpawn)
                                 {
-                                    var obj = OBJ.GetComponent<NetworkBehaviour>();
+                                    var obj = OBJ.GetComponent<NetworkView>();
                                     if (obj.ID == targetID && !obj.IsPlayers)
                                     {
                                         bool canAdd = true;
@@ -403,10 +300,10 @@ namespace EasyNet.Manager
                                 int targetID = Convert.ToInt32(splitted[2]);
                                 Quaternion r = new Quaternion(Convert.ToSingle(splitted[3]), Convert.ToSingle(splitted[4]), Convert.ToSingle(splitted[5]), Convert.ToSingle(splitted[6]));
                                 Debug.Log($"{senderID} to {targetID}: {splitted[0]} {r.x}, {r.y}, {r.z}, {r.w}");
-                                NetworkBehaviour[] networked = FindObjectsByType<NetworkBehaviour>(FindObjectsSortMode.None);
+                                NetworkView[] networked = FindObjectsByType<NetworkView>(FindObjectsSortMode.None);
                                 foreach (GameObject OBJ in NetworkObjectsSpawn)
                                 {
-                                    var obj = OBJ.GetComponent<NetworkBehaviour>();
+                                    var obj = OBJ.GetComponent<NetworkView>();
                                     if (obj.ID == targetID)
                                     {
                                         obj.transform.rotation = r;
@@ -421,7 +318,7 @@ namespace EasyNet.Manager
                                 Debug.Log($"{senderID} to {targetID}: {splitted[0]} {s.x}, {s.y}, {s.z}");
                                 foreach (GameObject OBJ in NetworkObjectsSpawn)
                                 {
-                                    var obj = OBJ.GetComponent<NetworkBehaviour>();
+                                    var obj = OBJ.GetComponent<NetworkView>();
                                     if (obj.ID == targetID)
                                     {
                                         obj.transform.localScale = s;
@@ -437,28 +334,31 @@ namespace EasyNet.Manager
 
                                     Debug.LogError($"Sending out all Object Information to Client that requested.");
 
-                                        Debug.LogError($"DEBUG: NetworkObjectsSpawn Count: {NetworkObjectsSpawn.Count}");
-                                        Debug.LogError($"DEBUG: NetworkObjects (Prefabs) Count: {NetworkObjects.Count}");
-                                        foreach (GameObject spawnReq in NetworkObjectsSpawn)
+                                    Debug.LogError($"DEBUG: NetworkObjectsSpawn Count: {NetworkObjectsSpawn.Count}");
+                                    Debug.LogError($"DEBUG: NetworkObjects (Prefabs) Count: {NetworkObjects.Count}");
+                                    foreach (GameObject spawnReq in NetworkObjectsSpawn)
+                                    {
+                                        NetworkView identity = spawnReq.GetComponent<NetworkView>();
+                                        int prefabIndex = identity.spawnID;
+                                        if (!identity.NetworkSync)
                                         {
-                                            NetworkBehaviour identity = spawnReq.GetComponent<NetworkBehaviour>();
-                                            int prefabIndex = identity.spawnID;
-
-                                            if (prefabIndex != -1 && identity.IsPlayers)
-                                            {
-                                                Debug.LogWarning($"Sending SPAWN OBJ Index: {prefabIndex} to Client: {SenderID}");
-
-                                                Command spawnCmd = new Command(client, Convert.ToInt64(SenderID), "SPAWN", prefabIndex.ToString());
-                                                spawnCmd.Format();
-
-                                                Packet output = new Packet(client, spawnCmd.GetBytes(), DataType.Custom);
-                                                client.SendPacket(output);
-                                            }
-                                            else
-                                            {
-                                                Debug.LogWarning($"Object {spawnReq.name} not found in NetworkObjects list!");
-                                            }
+                                            continue;
                                         }
+                                        else if (prefabIndex > -1 && identity.IsPlayers)
+                                        {
+                                            Debug.LogWarning($"Sending SPAWN OBJ Index: {prefabIndex} to Client: {SenderID}");
+
+                                            Command spawnCmd = new Command(client, Convert.ToInt64(SenderID), "SPAWN", prefabIndex.ToString());
+                                            spawnCmd.Format();
+
+                                            Packet output = new Packet(client, spawnCmd.GetBytes(), DataType.Custom);
+                                            client.SendPacket(output);
+                                        }
+                                        else
+                                        {
+                                            Debug.LogWarning($"Object {spawnReq.name} not found in NetworkObjects list!");
+                                        }
+                                    }
                                 }
                                 else if (splitted[0] == "JOINED_ROOM")
                                 {
@@ -471,7 +371,7 @@ namespace EasyNet.Manager
                                     uint idToKick = Convert.ToUInt32(splitted[splitted.Length - 1]);
                                     foreach (GameObject go in NetworkObjectsSpawn)
                                     {
-                                        NetworkBehaviour identity = go.GetComponent<NetworkBehaviour>();
+                                        NetworkView identity = go.GetComponent<NetworkView>();
                                         if (identity.OwnerID == idToKick)
                                             Destroy(go);
                                     }
@@ -488,7 +388,7 @@ namespace EasyNet.Manager
                                         string ObjID = parts[0];
                                         string ObjIndex = parts[1];
                                         GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(ObjIndex)]);
-                                        go.GetComponent<NetworkBehaviour>().ID = newID;
+                                        go.GetComponent<NetworkView>().ID = newID;
                                     }
                                 }
                                 else if (splitted[0] == "SPAWN")
@@ -500,7 +400,7 @@ namespace EasyNet.Manager
                                     Debug.Log($"{sender}: Spawn Object [{obj}]");
 
                                     GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(obj)]);
-                                    NetworkBehaviour identity = go.GetComponent<NetworkBehaviour>();
+                                    NetworkView identity = go.GetComponent<NetworkView>();
                                     NetworkObjectsSpawn.Add(go);
 
                                     identity.spawnID = Convert.ToInt32(obj);
@@ -511,7 +411,7 @@ namespace EasyNet.Manager
                                     {
 
                                         identity.IsPlayers = true;
-                                        identity.root = this;
+                                        identity.Network = this;
                                         Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: True");
                                     }
                                     else
@@ -559,6 +459,7 @@ namespace EasyNet.Manager
                                     RPCTarget target = (RPCTarget)Convert.ToInt32(rpc[2]);
                                     if (rpc.Length > 3)
                                     {
+                                        Debug.Log("RPC length longer than 3");
                                         try
                                         {
                                             string json = rpc[3];
@@ -566,20 +467,34 @@ namespace EasyNet.Manager
                                             bool canRun = false;
                                             if (RPCTarget.Master == target && IsMaster)
                                                 canRun = true;
-                                            if (Convert.ToInt64(sender) == client.ID)
-                                            {
-                                                if (RPCTarget.AllByServer == target)
-                                                    canRun = true;
-                                            }
                                             else
                                             {
                                                 if (RPCTarget.All == target)
                                                     canRun = true;
+                                                if (RPCTarget.AllByServer == target)
+                                                    canRun = true;
                                                 if (RPCTarget.Others == target)
                                                     canRun = true;
                                             }
+                                            Debug.Log("RPC Parameters Decoded");
                                             if (canRun)
-                                                RunRPC(name, args);
+                                            {
+                                                Debug.Log("Looking for elegable RPC runner");
+                                                foreach (GameObject go in NetworkObjectsSpawn)
+                                                {
+                                                    NetworkView identity = go.GetComponent<NetworkView>();
+                                                    if (identity.bindedRpcs.ContainsKey(name))
+                                                    {
+                                                        Debug.Log($"RPC '{name}' ran");
+                                                        identity.RunRPC(name, args);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                Debug.LogWarning("RPC recieved. Not for me though.");
+                                            }
                                         }
                                         catch (Exception e)
                                         {
@@ -600,26 +515,27 @@ namespace EasyNet.Manager
 
                                     string name = splitted[4];
                                     string value = splitted[5];
-                                    if ((latestTick < 0 && serverTick > 0) || (latestTick > serverTick))
+
+                                    serverTick = latestTick;
+
+                                    foreach (GameObject go in NetworkObjectsSpawn)
                                     {
-                                        serverTick = latestTick;
-                                        if (!NetworkVariable.ContainsKey(name))
+                                        NetworkView identity = go.GetComponent<NetworkView>();
+                                        if (identity.NetworkVariable.ContainsKey(name))
                                         {
-                                            Debug.Log($"Network Variable: '{name}' does not exist. Creating one now");
-                                            NetworkVariable.Add(name, new NetworkVariable<int>(this, name));
-                                        }
-                                        if (splitted.Length > 6 && NetworkVariable[name].GetType() == typeof(string))
-                                        {
-                                            for (int i = 6; i < splitted.Length; i++)
+                                            if (identity.NetworkVariable[name].tick < latestTick)
                                             {
-                                                value += splitted[i] + " ";
+                                                identity.NetworkVariable[name].tick = latestTick;
+                                                Debug.Log($"NETWORK MANAGER: Updated Variable: '{name}' to '{value}'");
+                                                identity.NetworkVariable[name].SetLocalValue(value);
+                                                break;
                                             }
+
+
                                         }
-
-                                        NetworkVariable[name].SetLocalValue(value);
-
-                                        Debug.Log($"NETWORK MANAGER: Updated Variable: '{name}' to '{value}'");
                                     }
+
+
                                 }
                                 else
                                 {
@@ -655,7 +571,7 @@ namespace EasyNet.Manager
                                         ConnectedRoom = unknown.Split('¬')[1];
                                         Debug.Log("Room Joining Stage 3/3 Complete");
                                         InRoom = true;
-                                        if(client.ID != MasterID)
+                                        if (client.ID != MasterID)
                                         {
                                             Command request = new Command(client, MasterID, "REQUEST", "");
                                             request.Format();
@@ -670,7 +586,7 @@ namespace EasyNet.Manager
                                 }
 
                             }
-                            else if(unknown.Contains("SPAWN"))
+                            else if (unknown.Contains("SPAWN"))
                             {
                                 string[] splitted = unknown.Split(' ');
                                 string sender = splitted[1];
@@ -678,7 +594,7 @@ namespace EasyNet.Manager
                                 Debug.Log($"{sender}: Spawn Object [{obj}]");
 
                                 GameObject go = Instantiate(NetworkObjects[Convert.ToInt32(obj)]);
-                                NetworkBehaviour identity = go.GetComponent<NetworkBehaviour>();
+                                NetworkView identity = go.GetComponent<NetworkView>();
                                 NetworkObjectsSpawn.Add(go);
 
                                 identity.spawnID = Convert.ToInt32(obj);
@@ -688,7 +604,7 @@ namespace EasyNet.Manager
                                 if (ID == Convert.ToInt32(sender))
                                 {
                                     identity.IsPlayers = true;
-                                    identity.root = this;
+                                    identity.Network = this;
                                     Debug.Log($"OBJ Spawned:\nID: {(pack.PacketID * 7)}\nIsPlayers: True");
                                 }
                                 else
@@ -716,7 +632,7 @@ namespace EasyNet.Manager
                             Debug.LogError($"DEBUG: NetworkObjects (Prefabs) Count: {NetworkObjects.Count}");
                             foreach (GameObject spawnReq in NetworkObjectsSpawn)
                             {
-                                NetworkBehaviour identity = spawnReq.GetComponent<NetworkBehaviour>();
+                                NetworkView identity = spawnReq.GetComponent<NetworkView>();
                                 int prefabIndex = identity.spawnID;
 
                                 if (prefabIndex != -1 && identity.IsPlayers)
