@@ -54,7 +54,7 @@ How to create and use Network-Synced Variables?
 First, create and register the variable with:
 ```csharp
 NetworkView Network;  // Network View Reference
-Network.NetworkVariable.Add("message", new NetworkVariable<string>(Network, "message"));
+Network.RegisterVariable(new NetworkVariable<string>(Network, "message");
 ```
 
 To update it use:
