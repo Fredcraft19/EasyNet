@@ -15,7 +15,7 @@ AI was used in the developemnt - This does not mean the 'whole thing is AI'. AI 
 To make a basic Mutliplayer engine that 'works' so noone is trapped from CCU Limits. Obviously there are much better alternatives than this but its a fun project I'm working on.
 
 # Documentation
-## .Net
+## C# .Net
 Go to 'EasyNet for C# .Net' folder then go into Documentation.MD 
 ## Unity
 Go to 'EasyNet for Unity' folder then go into Documentation.MD 
