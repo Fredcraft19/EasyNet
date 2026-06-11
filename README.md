@@ -15,7 +15,10 @@ AI was used in the developemnt - This does not mean the 'whole thing is AI'. AI 
 To make a basic Mutliplayer engine that 'works' so noone is trapped from CCU Limits. Obviously there are much better alternatives than this but its a fun project I'm working on.
 
 # Documentation
-Go to Documentation.MD for how to use this exactly.
+## .Net
+Go to 'EasyNet for C# .Net' folder then go into Documentation.MD 
+## Unity
+Go to 'EasyNet for Unity' folder then go into Documentation.MD 
 
 # Unity Template Project
 I recomend you use Unity version: 2022.3.62f2
