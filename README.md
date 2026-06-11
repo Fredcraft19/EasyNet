@@ -1,10 +1,11 @@
-# EasyNet for Unity
+# EasyNet
+## EasyNet for Unity
 EasyNet for Unity is my solution to CCU limits and hard-to-learn syntax for other Unity Networking Solutions.
 This is easy to learn and to use.
 EasyNet itself if the 'Backend' of the Unity code, I have plans to make EasyNet work with C++ aswell as it would be cool to make basic multiplayer for OpenGL. *for a personal project
 If/When I do create a C++ version for Easynet, it will be published here aswell.
 
-# EasyNet for C# .Net
+## EasyNet for C# .Net
 EasyNet for .Net is my way to connect things like WinForms and/or ConsoleApps together. It has all the same features as EasyNet for Unity, ingoreing the conponents like NetworkTransform and all that, because .Net doesnt need this (because it doesnt have conponents like Transform)
 
 # Note
