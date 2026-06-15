@@ -1,4 +1,4 @@
-﻿using EasyNet.Manager;
+using EasyNet.Manager;
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using EasyNet_Debugging;
