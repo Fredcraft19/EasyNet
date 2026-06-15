@@ -58,8 +58,9 @@ These are basically identical to EasyNet for Unity.
 ```cs
 // Creating the RPC
 // Just make a normal method with a void return type and any parameters
-void Message(string sender, string msg){
-Console.WriteLine($"{sender}: '{msg}'");
+void Message(string sender, string msg
+{
+  Console.WriteLine($"{sender}: '{msg}'");
 }
 
 // To bind it:
