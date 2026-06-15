@@ -3,6 +3,7 @@ using EasyNet.Manager;
 using EasyNet.View;
 using System.Net;
 using EasyNet_Debugging;
+using EasyNet;
 
 debug.debugmode = DebugMode.All;
 NetworkManager.Initialize(IPAddress.Loopback, 8080, true);
@@ -14,6 +15,7 @@ void bob()
     Console.WriteLine("RPC RECIEVED! IT WORKS YAYAYAYAYAY!");
 }
 Network.BindRPC("bob", bob);
+Network.RegisterVariable<int>("number");
 
 string uin;
 while (true)
@@ -22,7 +24,7 @@ while (true)
     if (uin == "rpc")
     {
         Console.WriteLine("Sending RPC...");
-        Network.RPC("bob", EasyNet.RPCTarget.AllByServer);
+        Network.RPC("bob", RPCTarget.AllByServer);
     }
     else if (uin == "connect")
     {
@@ -45,6 +47,15 @@ while (true)
     }
     else if(uin == "leave")
         NetworkManager.LeaveRoom();
+    else if(uin == "read")
+    {
+        Console.WriteLine($"Number: '{Network.GetVariable<int>("number")}'");
+    }
+    else if(uin == "add")
+    {
+        Console.WriteLine("Adding to Number +1");
+        Network.SetVariable("number", Network.GetVariable<int>("number") + 1);
+    }
     else
         Console.WriteLine("Command not recognised.");
 }
