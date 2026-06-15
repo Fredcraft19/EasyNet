@@ -1,4 +1,4 @@
-﻿using EasyNet;
+using EasyNet;
 using EasyNet.View;
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
@@ -50,14 +50,16 @@ namespace EasyNet.Manager
         public static bool connectOnAwake = false;
 
         public static long serverTick;
-        public static int tickSpeed;
+        // Tickspeed that the cache for incomming packets is read, cleared and executed*
+        // *by executed. i mean like, its read and used how its supposed to be, like an RPC, or SetID etc..
+        public static int tickSpeed = 20;
         /// <summary>
         /// Objects that can be spawned in by EasyNet
         /// </summary>
         /// <summary>
         /// Objects that have been spawned in by EasyNet
         /// </summary>
-        public static DebugMode debugMode = DebugMode.None;
+        public static DebugMode debugMode = DebugMode.All;
 
 
         private static List<long> PlayerList = new List<long>();
@@ -67,6 +69,7 @@ namespace EasyNet.Manager
         {
             ip = _ip; port = _port;
             client = new SystemClient(ip, port);
+            client.managed = true;
             NetworkView.Initialize();
           
             Awake();
@@ -75,7 +78,7 @@ namespace EasyNet.Manager
             if (ConnectToServer)
                 Connect();
 
-            Loop();
+            _ = Loop();
 
 
         }
@@ -102,33 +105,43 @@ namespace EasyNet.Manager
         static void Start()
         {
             client.UpdateRate = 50f;
-            SlowUpdate();
-            SlowerUpdate();
+            Task.Run(() => SlowUpdate());
+            Task.Run(() => SlowerUpdate());
         }
         static void Update()
         {
             debug.debugmode = debugMode;
-            if (client.ID != 0)
+            if(client.ID > 1)
             {
-                IsConnected = true;
+                ID = client.ID;
+                Network.ID = client.ID;
             }
         }
-
+        /// <summary>
+        /// Connects client to the EasyNet Server
+        /// </summary>
         public static void Connect()
         {
             Packet ping = new Packet(client, Bytes.Get(0));
             client.SendPacket(ping);
         }
+        /// <summary>
+        /// Connects client to a room. This is where other clients can communicate to eachother via RPCs and Network Variables
+        /// </summary>
+        /// <param name="roomName"></param>
         public static void JoinRoom(string roomName)
         {
             Packet output = new Packet(client, Bytes.Get($"JOINROOM¬{roomName}"), DataType.Custom);
             client.SendPacket(output);
         }
+        /// <summary>
+        /// Removes client from their room. Preventing RPCs being called and recieved to/from clients in their previous room
+        /// </summary>
         public static void LeaveRoom()
         {
             if (InRoom)
             {
-                Packet leaveRequest = new Packet(client, Bytes.Get("¬LEAVEROOM"));
+                Packet leaveRequest = new Packet(client, Bytes.Get("¬LEAVEROOM"), DataType.Custom);
                 client.SendPacket(leaveRequest);
             }
             else
@@ -168,13 +181,6 @@ namespace EasyNet.Manager
             IsMaster = placeholder;
             MasterID = placeholder2;
         }
-        public static void Instantiate(int index)
-        {
-            Command spawn = new Command(client, 0, "SPAWN", index.ToString());
-            spawn.Format();
-            Packet output = new Packet(client, spawn.GetBytes());
-            client.SendPacket(output);
-        }
 
         public static void RequestPlayerList()
         {
@@ -189,258 +195,293 @@ namespace EasyNet.Manager
                 Console.WriteLine("Started 'Slower Update'");
             while (true)
             {
-                if (IsConnected && InRoom)
+                try
                 {
-                    RequestPlayerList();
-                    await Task.Delay(2500);
-                    CheckIfMaster();
-                    await Task.Delay(2500);
+                    if (IsConnected && InRoom)
+                    {
+                        RequestPlayerList();
+                        await Task.Delay(2500);
+                        CheckIfMaster();
+                        client.SendPacket(new Packet(client, Bytes.Get("PING")));
+                        await Task.Delay(2500);
+                    }
+                    else
+                    {
+                        //Console.WriteLine($"Not pingning due to:\nROOM? {InRoom}\nSERVER? {IsConnected}");
+                        await Task.Delay(100);
+                    }
                 }
-                else
+                catch(Exception e)
                 {
-                    await Task.Delay(100);
-                    continue;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Error: "+e);
+                    Console.ResetColor();
                 }
             }
         }
         async static Task SlowUpdate()
         {
+            if (debug.Log())
+                Console.WriteLine("Packet Management Loop Started");
             while (true)
             {
-                await Task.Delay((int)(1f / (float)tickSpeed));
-                client.managed = true;
-                while (client.cache.TryDequeue(out Packet pack))
+                try
                 {
-                    pack.Format();
-                    if (DataType.Custom == pack.dataType)
+                    await Task.Delay((int)(1f / (float)tickSpeed));
+
+                    while (client.cache.TryDequeue(out Packet pack))
                     {
-                        Command command = null;
-                        try
+
+                        pack.Format();
+                        if (debug.Log())
                         {
-                            command = new Command(pack, client);
+                            Console.WriteLine($"Reading Packet with details:\nFrom: '{pack.SenderID}'\nType: '{pack.dataType}'");
+                        }
 
-                            string msg = Bytes.ToString(pack.Data);
-                            string[] splitted = msg.Split(' ');
 
-                            if (command.TargetID == client.ID || command.TargetID == 0)
+
+                        if (DataType.Custom == pack.dataType)
+                        {
+                            Command command = null;
+                            try
                             {
-                                if (splitted[0] == "JOINED_ROOM")
-                                {
-                                    if(debug.Log())
-                                        Console.WriteLine("JOINED ROOM from 'JOINED_ROOM'");
-                                    InRoom = true;
-                                    ConnectedRoom = msg.Split('¬')[1];
-                                }
-                                else if (splitted[0] == "ServerCommand")
-                                {
-                                    string[] playerList = msg.Split('¬');
-                                    playerList[0] = uint.MaxValue.ToString();
-                                    string output = "";
-                                    foreach (string s in playerList)
-                                    {
-                                        output += s + " ";
-                                    }
-                                    if (debug.Log())
-                                        Console.WriteLine($"Recieved Player List from Server! Stats:\nmsg: {msg}\nsplitted: {output}");
+                                command = new Command(pack, client);
 
-                                    PlayerList.Clear();
-                                    foreach (string player in playerList)
-                                    {
+                                string msg = Bytes.ToString(pack.Data);
+                                string[] splitted = msg.Split(' ');
 
-                                        try
-                                        {
-                                            if (player != uint.MaxValue.ToString())
-                                            {
-                                                Console.WriteLine($"Added player: {player} to player list");
-                                                PlayerList.Add(Convert.ToInt64(player));
-                                            }
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            if(debug.Error())
-                                                Console.WriteLine($"ERROR from NETWORK MANAGER, 'ServerCommand': Failed Int Convert: '{player}' \nError:{e}");
-                                        }
-                                    }
-                                }
-                                else if (splitted[0] == "RPC")
+                                if (command.TargetID == client.ID || command.TargetID == 0)
                                 {
-                                    if (debug.Log())
-                                        Console.WriteLine("RPC Recieved");
-                                    Command RecievedRPC = new Command(pack, client);
-                                    string sender = splitted[1];
-                                    string m = RecievedRPC.data;
-                                    string[] rpc = m.Split('¬');
-                                    string name = rpc[1];
-                                    RPCTarget target = (RPCTarget)Convert.ToInt32(rpc[2]);
-                                    if (rpc.Length > 3)
+                                    if (splitted[0] == "JOINED_ROOM")
                                     {
                                         if (debug.Log())
-                                            Console.WriteLine("RPC length longer than 3");
-                                        try
+                                            Console.WriteLine("JOINED ROOM from 'JOINED_ROOM'");
+                                        InRoom = true;
+                                        ConnectedRoom = msg.Split('¬')[1];
+                                    }
+                                    else if (splitted[0] == "ServerCommand")
+                                    {
+                                        string[] playerList = msg.Split('¬');
+                                        playerList[0] = uint.MaxValue.ToString();
+                                        string output = "";
+                                        foreach (string s in playerList)
                                         {
-                                            string json = rpc[3];
-                                            object[] args = JsonConvert.DeserializeObject<object[]>(json);
-                                            bool canRun = false;
-                                            if (RPCTarget.Master == target && IsMaster)
-                                                canRun = true;
-                                            else
+                                            output += s + " ";
+                                        }
+                                        if (debug.Log())
+                                            Console.WriteLine($"Recieved Player List from Server! Stats:\nmsg: {msg}\nsplitted: {output}");
+
+                                        PlayerList.Clear();
+                                        foreach (string player in playerList)
+                                        {
+
+                                            try
                                             {
-                                                if (RPCTarget.All == target)
-                                                    canRun = true;
-                                                if (RPCTarget.AllByServer == target)
-                                                    canRun = true;
-                                                if (RPCTarget.Others == target)
-                                                    canRun = true;
-                                            }
-                                            Console.WriteLine("RPC Parameters Decoded");
-                                            if (canRun)
-                                            {
-                                                Console.WriteLine("Looking for elegable RPC runner");
-                                                // Make a constant identity!
-                                                if (Network.bindedRpcs.ContainsKey(name))
+                                                if (player != uint.MaxValue.ToString())
                                                 {
-                                                    Console.WriteLine($"RPC '{name}' ran");
-                                                    Network.RunRPC(name, args);
-                                                    break;
+                                                    Console.WriteLine($"Added player: {player} to player list");
+                                                    PlayerList.Add(Convert.ToInt64(player));
                                                 }
                                             }
-                                            else
+                                            catch (Exception e)
                                             {
-                                                if (debug.Warning())
-                                                    Console.WriteLine("RPC recieved. Not for me though.");
+                                                if (debug.Error())
+                                                    Console.WriteLine($"ERROR from NETWORK MANAGER, 'ServerCommand': Failed Int Convert: '{player}' \nError:{e}");
                                             }
                                         }
-                                        catch (Exception e)
+                                    }
+                                    else if (splitted[0] == "RPC")
+                                    {
+                                        if (debug.Log())
+                                            Console.WriteLine("RPC Recieved");
+                                        Command RecievedRPC = new Command(pack, client);
+                                        string sender = splitted[1];
+                                        string m = RecievedRPC.data;
+                                        string[] rpc = m.Split('¬');
+                                        string name = rpc[1];
+                                        RPCTarget target = (RPCTarget)Convert.ToInt32(rpc[2]);
+                                        if (rpc.Length > 3)
                                         {
-                                            if (debug.Error())
-                                                Console.WriteLine($"Error with running RPC: {e}");
+                                            if (debug.Log())
+                                                Console.WriteLine("RPC length longer than 3");
+                                            try
+                                            {
+                                                string json = rpc[3];
+                                                object[] args = JsonConvert.DeserializeObject<object[]>(json);
+                                                bool canRun = false;
+                                                if (RPCTarget.Master == target && IsMaster)
+                                                    canRun = true;
+                                                else
+                                                {
+                                                    if (RPCTarget.All == target)
+                                                        canRun = true;
+                                                    if (RPCTarget.AllByServer == target)
+                                                        canRun = true;
+                                                    if (RPCTarget.Others == target)
+                                                        canRun = true;
+                                                }
+                                                Console.WriteLine("RPC Parameters Decoded");
+                                                if (canRun)
+                                                {
+                                                    Console.WriteLine("Looking for elegable RPC runner");
+                                                    // Make a constant identity!
+                                                    if (Network.bindedRpcs.ContainsKey(name))
+                                                    {
+                                                        Console.WriteLine($"RPC '{name}' ran");
+                                                        Network.RunRPC(name, args);
+                                                        continue;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if (debug.Warning())
+                                                        Console.WriteLine("RPC recieved. Not for me though.");
+                                                }
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                if (debug.Error())
+                                                    Console.WriteLine($"Error with running RPC: {e}");
+                                            }
                                         }
                                     }
-                                }
-                                else if (splitted[0] == "UPDATEVAR")
-                                {
-                                    Console.WriteLine("UPDATEVAR Recieved");
-                                    string sender = splitted[1];
-                                    //string target = splitted[2];
-                                    long latestTick = -1;
-                                    if (!long.TryParse(splitted[3], out latestTick))
+                                    else if (splitted[0] == "UPDATEVAR")
                                     {
-                                        if (debug.Error())
-                                            Console.WriteLine($"Failed to parse tick. Raw string value was: '{splitted[3]}'");
+                                        Console.WriteLine("UPDATEVAR Recieved");
+                                        string sender = splitted[1];
+                                        //string target = splitted[2];
+                                        long latestTick = -1;
+                                        if (!long.TryParse(splitted[3], out latestTick))
+                                        {
+                                            if (debug.Error())
+                                                Console.WriteLine($"Failed to parse tick. Raw string value was: '{splitted[3]}'");
+                                        }
+
+                                        string name = splitted[4];
+                                        string value = splitted[5];
+
+                                        serverTick = latestTick;
+                                        // MAKE IDENTITY JUST 1 AS IN NETWORK VIEW
+                                        if (NetworkView.NetworkVariable[name].tick < latestTick)
+                                        {
+                                            NetworkView.NetworkVariable[name].tick = latestTick;
+                                            if (debug.Log())
+                                                Console.WriteLine($"NETWORK MANAGER: Updated Variable: '{name}' to '{value}'");
+                                            NetworkView.NetworkVariable[name].SetLocalValue(value);
+                                            continue;
+                                        }
+
+
                                     }
-
-                                    string name = splitted[4];
-                                    string value = splitted[5];
-
-                                    serverTick = latestTick;
-                                    // MAKE IDENTITY JUST 1 AS IN NETWORK VIEW
-                                    if (NetworkView.NetworkVariable[name].tick < latestTick)
+                                    else
                                     {
-                                        NetworkView.NetworkVariable[name].tick = latestTick;
-                                        if (debug.Log())
-                                            Console.WriteLine($"NETWORK MANAGER: Updated Variable: '{name}' to '{value}'");
-                                        NetworkView.NetworkVariable[name].SetLocalValue(value);
-                                        break;
+                                        if (debug.Warning())
+                                            Console.WriteLine($"Unrecognised Custom Packet sent:\nMessage/Commmand: {msg}");
+                                        string unknown = Bytes.ToString(pack.Data);
+                                        if (unknown.Contains("JOINROOM"))
+                                        {
+                                            ConnectedRoom = unknown.Split('¬')[1];
+                                            InRoom = true;
+                                        }
                                     }
-
-
                                 }
                                 else
                                 {
                                     if (debug.Warning())
-                                        Console.WriteLine($"Unrecognised Custom Packet sent:\nMessage/Commmand: {msg}");
-                                    string unknown = Bytes.ToString(pack.Data);
-                                    if (unknown.Contains("JOINROOM"))
-                                    {
-                                        ConnectedRoom = unknown.Split('¬')[1];
-                                        InRoom = true;
-                                    }
+                                        Console.WriteLine($"Ignoring recieved Command Reason:\nTargetID: {command.TargetID} MyID: {client.ID}");
                                 }
+                            }
+                            catch (Exception e)
+                            {
+                                if (debug.Error())
+                                    Console.WriteLine($"Error when turning recieved command/string into a command format!\n\nError: {e}");
+
+                                string unknown = Bytes.ToString(pack.Data);
+                                if (unknown.Contains("JOINROOM"))
+                                {
+                                    try
+                                    {
+                                        if (debug.Log())
+                                            Console.WriteLine("Room Joining Stage 1/3");
+                                        if (Convert.ToInt64(unknown.Split('¬')[2]) == ID)
+                                        {
+                                            if (debug.Log())
+                                                Console.WriteLine("Room Joining Stage 2/3");
+                                            ConnectedRoom = unknown.Split('¬')[1];
+                                            if (debug.Log())
+                                                Console.WriteLine("Room Joining Stage 3/3 Complete");
+                                            InRoom = true;
+                                            if (client.ID != MasterID)
+                                            {
+                                                Command request = new Command(client, MasterID, "REQUEST", "");
+                                                request.Format();
+                                                Packet p = new Packet(client, request.GetBytes(), DataType.Custom);
+                                                client.SendPacket(p);
+                                            }
+                                        }
+                                    }
+                                    catch (Exception b)
+                                    {
+                                        if (debug.Error())
+                                            Console.WriteLine($"Error in getting Room Data:\nError: {b}");
+                                    }
+
+                                }
+                            }
+                            if (debug.Log())
+                                Console.WriteLine($"Packet Recieved -> {pack.dataType}: {Bytes.ToString(pack.Data)}");
+                            if (Bytes.ToString(pack.Data).Contains("REQUEST"))
+                            {
+                                string[] splitted = Bytes.ToString(pack.Data).Split(' ');
+
+
+                                string SenderID = splitted[1];
+                                // request late joiner data of what though?
+                            }
+
+                        }
+                        else if (DataType.SetID == pack.dataType)
+                        {
+                            Console.WriteLine("Got packet of SetID type!");
+                            if (debug.Log())
+                                Console.WriteLine($"Got ID of: {Bytes.ToUInt32(pack.Data)}");
+
+                            long newID = Bytes.ToUInt32(pack.Data);
+
+                            if (newID != 0)
+                            {
+                                if (debug.Log())
+                                    Console.WriteLine($"Set Client ID: {newID}");
+                                Network.ID = newID;
+                                client.ID = (uint)newID;
+                                ID = newID;
                             }
                             else
                             {
                                 if (debug.Warning())
-                                    Console.WriteLine($"Ignoring recieved Command Reason:\nTargetID: {command.TargetID} MyID: {client.ID}");
+                                    Console.WriteLine("SETID Refused: Not setting ID to 0");
                             }
                         }
-                        catch (Exception e)
+                        else if (DataType.String == pack.dataType)
                         {
-                            if (debug.Error())
-                                Console.WriteLine($"Error when turning recieved command/string into a command format!\n\nError: {e}");
-
-                            string unknown = Bytes.ToString(pack.Data);
-                            if (unknown.Contains("JOINROOM"))
-                            {
-                                try
-                                {
-                                    if (debug.Log())
-                                        Console.WriteLine("Room Joining Stage 1/3");
-                                    if (Convert.ToInt64(unknown.Split('¬')[2]) == ID)
-                                    {
-                                        if (debug.Log())
-                                            Console.WriteLine("Room Joining Stage 2/3");
-                                        ConnectedRoom = unknown.Split('¬')[1];
-                                        if (debug.Log())
-                                            Console.WriteLine("Room Joining Stage 3/3 Complete");
-                                        InRoom = true;
-                                        if (client.ID != MasterID)
-                                        {
-                                            Command request = new Command(client, MasterID, "REQUEST", "");
-                                            request.Format();
-                                            Packet p = new Packet(client, request.GetBytes(), DataType.Custom);
-                                            client.SendPacket(p);
-                                        }
-                                    }
-                                }
-                                catch (Exception b)
-                                {
-                                    if (debug.Error())
-                                        Console.WriteLine($"Error in getting Room Data:\nError: {b}");
-                                }
-
-                            }
+                            Console.WriteLine($"[Server] {Bytes.ToString(pack.Data)}");
                         }
-                        if (debug.Log())
-                            Console.WriteLine($"Packet Recieved -> {pack.dataType}: {Bytes.ToString(pack.Data)}");
-                        if (Bytes.ToString(pack.Data).Contains("REQUEST"))
-                        {
-                            string[] splitted = Bytes.ToString(pack.Data).Split(' ');
-
-
-                            string SenderID = splitted[1];
-                            // request late joiner data of what though?
-                        }
-
-                    }
-                    else if (DataType.SetID == pack.dataType)
-                    {
-                        long newID = Bytes.ToUInt32(pack.Data);
-                        if (newID != 0)
+                        else if (DataType.Ping == pack.dataType)
                         {
                             if (debug.Log())
-                                Console.WriteLine($"Set Client ID: {newID}");
-                            ID = newID;
-                            client.ID = (uint)newID;
+                                Console.WriteLine("Sending Ping Back");
+                            Packet pingBack = new Packet(client, Bytes.Get("Pingback"), DataType.Ping);
+                            _ = client.client.Send(pingBack.GetBytes());
                         }
-                        else
-                        {
-                            if (debug.Warning())
-                                Console.WriteLine("SETID Refused: Not setting ID to 0");
-                        }
-                    }
-                    else if (DataType.String == pack.dataType)
-                    {
-                        Console.WriteLine($"[Server] {Bytes.ToString(pack.Data)}");
-                    }
-                    else if (DataType.Ping == pack.dataType)
-                    {
-                        if (debug.Log())
-                            Console.WriteLine("Sending Ping Back");
-                        Packet pingBack = new Packet(client, Bytes.Get("Pingback"), DataType.Ping);
-                        _ = client.client.Send(pingBack.GetBytes());
+
+
                     }
                 }
-
+                catch(Exception e)
+                {
+                    if(debug.Error())
+                        Console.WriteLine(e);
+                }
             }
         }
         public static uint GetObjectID(uint senderID, uint objectID)
