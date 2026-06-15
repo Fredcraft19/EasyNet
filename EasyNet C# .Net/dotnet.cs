@@ -87,6 +87,7 @@ namespace EasyNet
         internal abstract void SetValue(string value);
         internal abstract void SetLocalValue(string value);
         internal abstract string SerializeValue();
+        internal abstract void Refresh();
     }
     class NetworkVariable<T> : NetworkVariableBase
     {
@@ -94,7 +95,16 @@ namespace EasyNet
         public NetworkVariable(string _name)
         {
             if (_name.Contains(" "))
-                throw new Exception("NetworkVariable name cannot contain spaces");
+            {
+                if (debug.Error())
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("NetworkVariable name cannot contain spaces");
+                    Console.ResetColor();
+                }
+                return;
+            }
+                
 
             name = _name;
             Command makeVaraible = new Command(NetworkManager.client, 0, "UPDATEVAR", $"{name} {_value}");
@@ -121,6 +131,20 @@ namespace EasyNet
         {
             get => _value;
             set => _value = value;
+        }
+        internal override void Refresh()   // Send a server a message basically saying Variable = Variable. For Late Joiners
+        {
+            try
+            {
+                if (debug.Log())
+                    Console.WriteLine("Refreshing Variable!");
+                SetValue(_value.ToString());
+            }
+            catch(Exception e)
+            {
+                if(debug.Error())
+                    Console.WriteLine("Error when refreshing variable: \n" + e);
+            }
         }
 
         public override object BoxedValue
