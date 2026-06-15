@@ -1,6 +1,37 @@
 # Documentation
+For all code snippets, they most likely are dependent on these:
+```cs
+// For NetworkManager
+using EasyNet.Manager;
 
+// For Network
+using EasyNet.View;
+
+// For C#'s built in IPAddress
+using System.Net;
+
+// For Debugging
+using EasyNet_Debugging;
+```
+## Debugging
+To debug EasyNet for C# .Net simply add these 2 lines in your code and it will start to debug whatever you ask for:
+```cs
+using EasyNet_Debugging;
+debug.debugmode = DebugMode.All;
+
+// Go do Debugging.cs for all DebugMode options
+// Examples: Logs, Warnings, Errors and All
+```
 ## Connectivity
+### Initializing the Client
+To start connecting to the server and all that, first you must inititalize your client by:
+```cs
+NetworkManager.Initialize(IPAddress.Loopback, 8080, true);
+// What are all these parameters for?!
+// IPAddress.Loopback is an example IP, you would replace it with your servers IP or keep it as loopback if the server is running on your client.
+// 8080 is an example Port your server will be running on.
+// True means to auto connect to the server (bypassing 'NetworkManager.Connect()')
+```
 ### Connection to Server
 To connect to your EasyNet server* you must use:
 
