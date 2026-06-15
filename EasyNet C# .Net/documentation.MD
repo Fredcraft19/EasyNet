@@ -85,6 +85,26 @@ Network.RPC("message", RPCTarget.Others, "Bob", "Hey guys, its bob!");
 
 // *To Find out all RPCTargets, in your IDE just highlight RPCTarget then click F12 on your keyboard, it will show you all the possible targets for RPCs
 ```
+## Network Variables
+You do not need to worry about these syncing as they automatically do whenever a client joins a room and whenever the value is changed.
+### Creation
+To create a network-synced variable, just do:
+```cs
+Network.RegisterVariable<int>("number");
+// <int> because thats the varibales data type
+// "number" because thats the variables name
+```
 
+### Changing
+To change a Network Varibles value just do:
+```cs
+Network.SetVariable("number", 5);
+// "number" because thats the varibale we are editings name
+// 5 because thats the value we are assigning it
+
+// To do the equivalent of:
+/// number += 1;
+Network.SetVariable("number", Network.GetVariable<int>("number") + 1);
+```
 
 
