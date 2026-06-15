@@ -133,6 +133,8 @@ namespace EasyNet.Manager
         {
             Packet output = new Packet(client, Bytes.Get($"JOINROOM¬{roomName}"), DataType.Custom);
             client.SendPacket(output);
+            Network.RequestVariables();
+            
         }
         /// <summary>
         /// Removes client from their room. Preventing RPCs being called and recieved to/from clients in their previous room
@@ -248,6 +250,7 @@ namespace EasyNet.Manager
                                 command = new Command(pack, client);
 
                                 string msg = Bytes.ToString(pack.Data);
+
                                 string[] splitted = msg.Split(' ');
 
                                 if (command.TargetID == client.ID || command.TargetID == 0)
@@ -372,6 +375,16 @@ namespace EasyNet.Manager
                                         }
 
 
+                                    }
+                                    else if (splitted[0] == "REQUEST")      // Request all NetworkVariable's from all clients (not good i know. MasterClientID not working though.. -> At least it syncs all clients?!)
+                                    {
+                                        if (splitted[1] != ID.ToString())   // so then you cant recieve your own requests and give yourself false data
+                                        {
+                                            foreach(string var_name in Network.NetworkVariable.Keys)
+                                            {
+                                                Network.NetworkVariable[var_name].Refresh();
+                                            }
+                                        }
                                     }
                                     else
                                     {
