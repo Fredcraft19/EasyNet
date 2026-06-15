@@ -1,6 +1,9 @@
 # Documentation
 For all code snippets, they most likely are dependent on these:
 ```cs
+// For things like RPCTarget
+using EasyNet;
+
 // For NetworkManager
 using EasyNet.Manager;
 
@@ -76,9 +79,11 @@ To call a RPC:
 Network.RPC("message", RPCTarget.Others, "Bob", "Hey guys, its bob!");
 
 // Why "message"? THis is the RPC name you set in BindRPC.
-// Why RPCTarget.Others? This sends it to all the other clients except yourself.
+// Why RPCTarget.Others?* This sends it to all the other clients except yourself.
 // Why "Bob?" Thats the first parameter of 'Message' method, this gets passed into the method.
 // Why "Hey guys..."? Thats the second parameter of 'Message' method, this gets passed into the method.
+
+// *To Find out all RPCTargets, in your IDE just highlight RPCTarget then click F12 on your keyboard, it will show you all the possible targets for RPCs
 ```
 
 
