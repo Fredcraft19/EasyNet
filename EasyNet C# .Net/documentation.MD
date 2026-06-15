@@ -35,7 +35,7 @@ NetworkManager.Initialize(IPAddress.Loopback, 8080, true);
 ### Connection to Server
 To connect to your EasyNet server* you must use:
 
-*You must host your own EasyNet server for this to work. Its recommended to use an old laptop or a server from Google Cloud or Oracle for example (these do come with free tiers / trials)
+*You must host your own EasyNet server for this to work. Its recommended to use an old laptop or a server from Google Cloud or Oracle for example (these do come with free tiers / trials), this should then be running the latest released console app in the Relaeses tab. (ignore it if it says EasyNet for Unity or something, the servers work for .Net and Unity both. Just not at the same time (techincally do but it will cause very weird errors))
 ```cs
 NetworkManager.Connect();
 ```
