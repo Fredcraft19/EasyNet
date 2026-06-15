@@ -1,4 +1,4 @@
-﻿namespace EasyNet_Debugging
+namespace EasyNet_Debugging
 {
     public static class debug
     {
