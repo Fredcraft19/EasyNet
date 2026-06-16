@@ -1,7 +1,7 @@
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using EasyNet_BackEnd.UDP;
-
+using EasyNet_Debugging;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
@@ -136,7 +136,8 @@ namespace EasyNet_BackEnd
                             recieved.rawData = recievedData;
                             recieved.Format();
 
-                            Console.WriteLine($"Packet recieved of type: {recieved.dataType} from {recieved.SenderID}");
+                            if (debug.Log())
+                                Console.WriteLine($"Packet recieved of type: {recieved.dataType} from {recieved.SenderID}");
 
 
                             if (0 != recieved.SenderID)
@@ -159,7 +160,8 @@ namespace EasyNet_BackEnd
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine($"Message Loop Failed with error:\n{e}");
+                        if (debug.Log())
+                            Console.WriteLine($"Message Loop Failed with error:\n{e}");
                     }
                 });
             }
@@ -227,11 +229,12 @@ namespace EasyNet_BackEnd
                     if (clients.Count < 1)
                     {
                         await Task.Delay(500);
-                        Console.WriteLine("Not Pinging to 0 Clients");
+                        if (debug.Log())
+                            Console.WriteLine("Not Pinging to 0 Clients");
                         continue;
                     }
 
-                    if (DEBUG_LOG)
+                    if (debug.Log())
                         Console.WriteLine("Sent out Pings to clients");
                     Packet ping = new Packet(this, Bytes.Get("Ping"), DataType.Ping);
                     notSentPackets.TryAdd(ping.PacketID, ping);
@@ -257,6 +260,7 @@ namespace EasyNet_BackEnd
                     {
                         clients.Remove(id);
                         lastSeen.Remove(id);
+                        if (debug.Log())
                         Console.WriteLine($"Client[{id}] timed out");
                         Packet kickedClient = new Packet(this, Bytes.Get($"KICK 1 0 {id}"));
                         notSentPackets.TryAdd(kickedClient.PacketID, kickedClient);
@@ -295,7 +299,8 @@ namespace EasyNet_BackEnd
                         }
                         else
                         {
-                            Console.WriteLine($"Packet ingored with type: {type} ({(int)type})");
+                            if (debug.Log())
+                                Console.WriteLine($"Packet ingored with type: {type} ({(int)type})");
                         }
                     }
                 }
@@ -324,7 +329,8 @@ namespace EasyNet_BackEnd
                                             string value = ".";
                                             if (packet.dataType == DataType.SetID)
                                                 value = $" -> Value: {Bytes.ToUInt32(packet.Data)}";
-                                            Console.WriteLine($"Sent Packet -> {packet.dataType}{value}");
+                                            if (debug.Log())
+                                                Console.WriteLine($"Sent Packet -> {packet.dataType}{value}");
                                             await server.SendTo(ep, packet.GetBytes());
                                         }
                                     }
@@ -339,7 +345,8 @@ namespace EasyNet_BackEnd
                                         string value = ".";
                                         if (packet.dataType == DataType.SetID)
                                             value = $" -> Value: {Bytes.ToUInt32(packet.Data)}";
-                                        Console.WriteLine($"Sent Packet -> {packet.dataType}{value}");
+                                        if (debug.Log())
+                                            Console.WriteLine($"Sent Packet -> {packet.dataType}{value}");
                                         await server.SendTo(packet.target, packet.GetBytes());
                                     }
                                 }
@@ -377,7 +384,7 @@ namespace EasyNet_BackEnd
                                 cache.Enqueue(echoPacket);
 
                             EndPoint endPoint = res.RemoteEndPoint;
-                            if (DEBUG_LOG)
+                            if (debug.Log())
                                 Console.WriteLine($"Recieved Packet: {echoPacket.dataType} From ID: {echoPacket.SenderID}");
 
                             lastSeen[echoPacket.SenderID] = DateTime.UtcNow;
@@ -385,8 +392,8 @@ namespace EasyNet_BackEnd
                             if (!clients.ContainsValue(endPoint))
                             {
                                 uint newId = (clients.Keys.Count > 0 ? clients.Keys.Max() : 1) + 1;
-
-                                Console.WriteLine($"Given a new client an id of {newId}.");
+                                if (debug.Log())
+                                    Console.WriteLine($"Given a new client an id of {newId}.");
 
                                 clients.Add(newId, endPoint);
                                 SendIdUpdate(newId, endPoint);
@@ -417,7 +424,8 @@ namespace EasyNet_BackEnd
             }
             void SendIdUpdate(uint id, EndPoint target)
             {
-                Console.WriteLine($"Setting ID: {id}\nRetranslated: {Bytes.ToUInt32(Bytes.Get(id))}");
+                if (debug.Log())
+                    Console.WriteLine($"Setting ID: {id}\nRetranslated: {Bytes.ToUInt32(Bytes.Get(id))}");
                 byte[] bytes = Bytes.Get(id);
                 Packet updateID = new Packet(this, bytes, DataType.SetID);
                 updateID.target = target;
