@@ -1,12 +1,12 @@
 using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
-using System.Drawing;
 using System.Net;
+using EasyNet_Debugging;
 
-Console.WriteLine("EasyNet Unity Server");
+Console.WriteLine("EasyNet Server");
 
 long serverTick = 0;
-Server server = new Server(true);
+Server server = new Server(8080, true);
 server.managed = true;
 uint MasterID = 2;
 
@@ -27,7 +27,7 @@ uint NewPacketID()
 string GetPlayerList(string name)
 {
     string list = "";
-    foreach(uint id  in clientsInRooms.Keys)
+    foreach (uint id in clientsInRooms.Keys)
     {
         if (clientsInRooms[id] == name)
             list += $"¬{id}";
@@ -43,7 +43,7 @@ while (server.clients.Count == 0)
 
 Console.Clear();
 _ = ClearCache();
-Console.WriteLine("EasyNet Unity Server");
+Console.WriteLine("EasyNet Server");
 
 while (true)
 {
@@ -61,10 +61,10 @@ while (true)
     {
         Console.Clear();
     }
-    else if(uin == "clients")
+    else if (uin == "clients")
     {
         Console.WriteLine("Clients list:");
-        foreach(uint id in clientsInRooms.Keys)
+        foreach (uint id in clientsInRooms.Keys)
         {
             Console.WriteLine($"ID: {id} In Room: {clientsInRooms[id]}");
         }
@@ -97,9 +97,9 @@ async Task ClearCache()
 {
     while (true)
     {
-        Console.ForegroundColor = ConsoleColor.Blue;
-        Console.WriteLine("Main Loop Intacked");
-        Console.ResetColor();
+        //Console.ForegroundColor = ConsoleColor.Blue;
+        //Console.WriteLine("Main Loop Intacked");
+        //Console.ResetColor();
 
         MasterID = server.GetMasterClient();
 
@@ -120,16 +120,17 @@ async Task ClearCache()
             Console.WriteLine($"Processing Packet: {packet.PacketID}");
             Console.ResetColor();
 
-            if (!server.clients.ContainsKey(packet.SenderID))
+            if (!server.clients.ContainsKey(packet.SenderID) && packet.SenderID > 1)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Packet Recieved from Disconected Client");
                 Console.ResetColor();
                 continue;
             }
+            
             Console.ForegroundColor = ConsoleColor.Magenta; //1
             log++;
-            Console.WriteLine($"LOG: {log} ");
+            Console.WriteLine($"LOG: {log}");
             Console.ResetColor();
 
             if (packet.dataType == DataType.Custom || packet.dataType == DataType.String)
@@ -145,7 +146,8 @@ async Task ClearCache()
                     string[] splitted = msg.Split(' ');
                     splitted[2] = packet.SenderID.ToString();
                     msg = "";
-                    foreach (string s in splitted) {
+                    foreach (string s in splitted)
+                    {
                         msg += s + " ";
                     }
 
@@ -167,7 +169,8 @@ async Task ClearCache()
                 log++;
                 Console.WriteLine($"LOG: {log} ");
                 Console.ResetColor();
-                try {
+                try
+                {
                     if (Bytes.ToString(packet.Data).Contains("JOINROOM"))
                     {
                         string roomToJoin = Bytes.ToString(packet.Data).Split('¬')[1];
@@ -179,13 +182,27 @@ async Task ClearCache()
                         Console.WriteLine($"Added Client ID: {joinRoomResponse.SenderID} To Room: {clientsInRooms[joinRoomResponse.SenderID]}");
                         server.notSentPackets.TryAdd(joinRoomResponse.PacketID, packet);
                         Console.ResetColor();
+                        continue; // make sure this packet isnt echoed to other clients
+                    }
+                    else
+                    {
+                        if (!clientsInRooms.ContainsKey(packet.SenderID))   // ROOM CHECK #1, to check if we should ignore this packet, because if the sender isnt in a room, they shouldnt be able to communicate.
+                        {
+                            Console.WriteLine("Packet Recieved from client not in room. Ignoring!");
+                            continue;
+                        }
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"Error when managing the JOINROOM server command Error:\n{e}");
                     Console.ForegroundColor = ConsoleColor.Gray;
+                }
+                if (!clientsInRooms.ContainsKey(packet.SenderID))   // ROOM CHECK #2 (why not?!) (better to be safe then sorry!)
+                {
+                    Console.WriteLine("Packet Recieved from client not in room. Ignoring!");
+                    continue;
                 }
 
                 Console.ForegroundColor = ConsoleColor.Magenta;//5
@@ -198,6 +215,7 @@ async Task ClearCache()
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine($"Removed Client ID: {packet.SenderID} from their room");
                     Console.ResetColor();
+                    continue; // dont want to echo this. (its a server command just like JOINROOM)
                 }
                 Console.ForegroundColor = ConsoleColor.Magenta;//6
                 log++;
@@ -206,7 +224,7 @@ async Task ClearCache()
 
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("SERVER_TICK", serverTick.ToString()));
                 packet.Data = Bytes.Get(Bytes.ToString(packet.Data).Replace("PLAYER_LIST", playerList));
-                
+
                 packet.rawData = packet.GetBytes();
                 packet.Format();
                 Console.ForegroundColor = ConsoleColor.Magenta;//7
@@ -214,7 +232,7 @@ async Task ClearCache()
                 Console.WriteLine($"LOG: {log} ");
                 Console.ResetColor();
 
-                if(packet.target == null)
+                if (packet.target == null)
                 {
                     if (clientsInRooms.TryGetValue(packet.SenderID, out var senderRoom))
                     {
@@ -250,7 +268,7 @@ async Task ClearCache()
                 {
                     server.notSentPackets.TryAdd(packet.PacketID, packet);
                 }
-                
+
                 Console.ForegroundColor = ConsoleColor.Magenta;//8
                 log++;
                 Console.WriteLine($"LOG: {log} ");
@@ -302,4 +320,3 @@ async Task ClearCache()
         await Task.Delay(8);    // 125/Second (125 tickrate)
     }
 }
-
