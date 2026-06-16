@@ -20,7 +20,7 @@ using EasyNet_Debugging;
 To debug EasyNet for C# .Net simply add these 2 lines in your code and it will start to debug whatever you ask for:
 ```cs
 using EasyNet_Debugging;
-debug.debugmode = DebugMode.All;
+NetworkManager.DebugMode = DebugMode.None;
 
 // Go do Debugging.cs for all DebugMode options
 // Examples: Logs, Warnings, Errors and All
