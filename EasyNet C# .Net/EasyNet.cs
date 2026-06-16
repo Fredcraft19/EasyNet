@@ -1,4 +1,4 @@
-﻿using EasyNet_BackEnd.Data;
+using EasyNet_BackEnd.Data;
 using EasyNet_BackEnd.System;
 using EasyNet_BackEnd.UDP;
 
@@ -182,12 +182,12 @@ namespace EasyNet_BackEnd
 
             private Dictionary<uint, DateTime> lastSeen = new();
 
-            public Server() : this(false) { }
+            public Server(int port) : this(port, false) { }
 
-            public Server(bool debugMode)
+            public Server(int port, bool debugMode)
             {
                 DEBUG_LOG = debugMode;
-                server = new UDP_Server();
+                server = new UDP_Server(port);
                 StartMessageLoop();
                 PacketSender();
                 _ = ClientPings();
@@ -417,6 +417,7 @@ namespace EasyNet_BackEnd
             }
             void SendIdUpdate(uint id, EndPoint target)
             {
+                Console.WriteLine($"Setting ID: {id}\nRetranslated: {Bytes.ToUInt32(Bytes.Get(id))}");
                 byte[] bytes = Bytes.Get(id);
                 Packet updateID = new Packet(this, bytes, DataType.SetID);
                 updateID.target = target;
@@ -553,12 +554,13 @@ namespace EasyNet_BackEnd
     {
         public class UDP_Server
         {
-            public const int PORT = 8080;
+            public int PORT;
             public Socket _socket;
             public byte[] _buffer_recv;
             public ArraySegment<byte> _buffer_recv_segment;
-            public UDP_Server()
+            public UDP_Server(int newPORT)
             {
+                PORT = newPORT;
                 _buffer_recv = new byte[2048];
                 _buffer_recv_segment = new ArraySegment<byte>(_buffer_recv);
                 _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
