@@ -6,7 +6,7 @@ using EasyNet_Debugging;
 using EasyNet;
 
 NetworkManager.DebugMode = DebugMode.None;
-NetworkManager.Initialize(IPAddress.Parse("147.185.221.23"), 57074, true);
+NetworkManager.Initialize(IPAddress.Loopback, 8080, true);
 NetworkManager.Connect();
 NetworkManager.JoinRoom("12345");
 
