@@ -104,7 +104,7 @@ namespace EasyNet
                 }
                 return;
             }
-                
+
 
             name = _name;
             Command makeVaraible = new Command(NetworkManager.client, 0, "UPDATEVAR", $"{name} {_value}");
@@ -140,9 +140,9 @@ namespace EasyNet
                     Console.WriteLine("Refreshing Variable!");
                 SetValue(_value.ToString());
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                if(debug.Error())
+                if (debug.Error())
                     Console.WriteLine("Error when refreshing variable: \n" + e);
             }
         }
