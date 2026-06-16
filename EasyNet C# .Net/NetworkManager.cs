@@ -59,7 +59,7 @@ namespace EasyNet.Manager
         /// <summary>
         /// Objects that have been spawned in by EasyNet
         /// </summary>
-        public static DebugMode debugMode = DebugMode.All;
+        public static DebugMode DebugMode = DebugMode.None;
 
 
         private static List<long> PlayerList = new List<long>();
@@ -110,7 +110,7 @@ namespace EasyNet.Manager
         }
         static void Update()
         {
-            debug.debugmode = debugMode;
+            debug.debugmode = DebugMode;
             if(client.ID > 1)
             {
                 ID = client.ID;
@@ -303,6 +303,8 @@ namespace EasyNet.Manager
                                         string[] rpc = m.Split('¬');
                                         string name = rpc[1];
                                         RPCTarget target = (RPCTarget)Convert.ToInt32(rpc[2]);
+                                        if(true)    // UPDATE [PELASE IAHRFIOEASHDOIKHFIOUEW
+                                            Console.WriteLine($"    RPC's Target: {target.ToString()}");
                                         if (rpc.Length > 3)
                                         {
                                             if (debug.Log())
@@ -320,17 +322,20 @@ namespace EasyNet.Manager
                                                         canRun = true;
                                                     if (RPCTarget.AllByServer == target)
                                                         canRun = true;
-                                                    if (RPCTarget.Others == target)
+                                                    if (RPCTarget.Others == target && ID != pack.SenderID)
                                                         canRun = true;
                                                 }
-                                                Console.WriteLine("RPC Parameters Decoded");
+                                                if(debug.Log())
+                                                    Console.WriteLine("RPC Parameters Decoded");
                                                 if (canRun)
                                                 {
-                                                    Console.WriteLine("Looking for elegable RPC runner");
+                                                    if (debug.Log())
+                                                        Console.WriteLine("Looking for elegable RPC runner");
                                                     // Make a constant identity!
                                                     if (Network.bindedRpcs.ContainsKey(name))
                                                     {
-                                                        Console.WriteLine($"RPC '{name}' ran");
+                                                        if (debug.Log())
+                                                            Console.WriteLine($"RPC '{name}' ran");
                                                         Network.RunRPC(name, args);
                                                         continue;
                                                     }
@@ -350,7 +355,8 @@ namespace EasyNet.Manager
                                     }
                                     else if (splitted[0] == "UPDATEVAR")
                                     {
-                                        Console.WriteLine("UPDATEVAR Recieved");
+                                        if(debug.Log())
+                                            Console.WriteLine("UPDATEVAR Recieved");
                                         string sender = splitted[1];
                                         //string target = splitted[2];
                                         long latestTick = -1;
@@ -455,10 +461,6 @@ namespace EasyNet.Manager
                         }
                         else if (DataType.SetID == pack.dataType)
                         {
-                            Console.WriteLine("Got packet of SetID type!");
-                            if (debug.Log())
-                                Console.WriteLine($"Got ID of: {Bytes.ToUInt32(pack.Data)}");
-
                             long newID = Bytes.ToUInt32(pack.Data);
 
                             if (newID != 0)
