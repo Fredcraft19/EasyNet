@@ -2,59 +2,42 @@ namespace EasyNet_Debugging
 {
     public static class debug
     {
-        public static DebugMode debugmode;
-        public static bool Log()
-        {
-            if (debugmode == DebugMode.Logs || debugmode == DebugMode.LogsAndWarnings || debugmode == DebugMode.All)
-                return true;
-            else
-                return false;
-        }
-        public static bool Warning()
-        {
-            if (debugmode == DebugMode.Warnings || debugmode == DebugMode.LogsAndWarnings || debugmode == DebugMode.All || debugmode == DebugMode.WarningsAndErrors)
-                return true;
-            else
-                return false;
-        }
-        public static bool Error()
-        {
-            if (debugmode == DebugMode.Errors || debugmode == DebugMode.WarningsAndErrors || debugmode == DebugMode.All)
-                return true;
-            else
-                return false;
-        }
+        public static DebugMode debugmode = DebugMode.None;
+        public static bool Log() => debugmode.HasFlag(DebugMode.Logs);
+        public static bool Warning() => debugmode.HasFlag(DebugMode.Warnings);
+        public static bool Error() => debugmode.HasFlag(DebugMode.Errors);
     }
+    [Flags]
     public enum DebugMode
     {
         /// <summary>
-        /// Shows nothing for Networking debug logs
+        /// Shows no logs at all
         /// </summary>
-        None,
+        None = 0,
         /// <summary>
         /// Only shows basic logs
         /// </summary>
-        Logs,
+        Logs = 1 << 0,
         /// <summary>
-        /// Shows just warnings
+        /// Only shows warnings
         /// </summary>
-        Warnings,
+        Warnings = 1 << 1,
+        /// <summary>
+        /// Only shows errors
+        /// </summary>
+        Errors = 1 << 2, 
         /// <summary>
         /// Shows logs and warnings
         /// </summary>
-        LogsAndWarnings,
+        LogsAndWarnings = Logs | Warnings,
         /// <summary>
-        /// Shows just errors
+        /// Shows Warnings and errors
         /// </summary>
-        Errors,
+        WarningsAndErrors = Warnings | Errors,
         /// <summary>
-        /// Shows warnings and errors
+        /// Shows everything (it will fill your console quickly)
         /// </summary>
-        WarningsAndErrors,
-        /// <summary>
-        /// Shows everything... and floods your console.
-        /// </summary>
-        All
+        All = Logs | Warnings | Errors
     }
 
 }
