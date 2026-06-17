@@ -16,7 +16,11 @@ namespace EasyNet.Manager
 {
     public class NetworkManager : MonoBehaviour
     {
-        private IPAddress ip = IPAddress.Loopback;
+        [SerializeField]
+        private string IP = "127.0.0.1";
+
+        private IPAddress ip;
+        [SerializeField]
         private int port = 8080;
         public Client client;
 
@@ -88,6 +92,7 @@ namespace EasyNet.Manager
         {
             if (port == 0)
                 port = 8080;
+            ip = IPAddress.Parse(IP);
 
             client = new Client(ip, port);
             client.managed = true;
