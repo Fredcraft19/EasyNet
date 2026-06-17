@@ -180,7 +180,7 @@ async Task ClearCache()
                         joinRoomResponse.SenderID = packet.SenderID;
                         joinRoomResponse.target = server.clients[packet.SenderID];
                         Console.WriteLine($"Added Client ID: {joinRoomResponse.SenderID} To Room: {clientsInRooms[joinRoomResponse.SenderID]}");
-                        server.notSentPackets.TryAdd(joinRoomResponse.PacketID, packet);
+                        server.notSentPackets.TryAdd(joinRoomResponse.PacketID, joinRoomResponse);
                         Console.ResetColor();
                         continue; // make sure this packet isnt echoed to other clients
                     }
