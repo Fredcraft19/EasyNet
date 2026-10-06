@@ -1,4 +1,6 @@
 # EasyNet
+## NEW, BETTER VERSION:
+Theres a new and better Networking Engine by me for Unity Engine [here](https://github.com/Fredcraft19/SimplyNetworking)
 ## EasyNet for Unity
 EasyNet for Unity is my solution to CCU limits and hard-to-learn syntax for other Unity Networking Solutions.
 This is easy to learn and to use.
