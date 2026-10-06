@@ -11,8 +11,9 @@ If/When I do create a C++ version for Easynet, it will be published here aswell.
 EasyNet for .Net is my way to connect things like WinForms and/or ConsoleApps together. It has all the same features as EasyNet for Unity, ingoreing the conponents like NetworkTransform and all that, because .Net doesnt need this (because it doesnt have conponents like Transform)
 
 # Note
-Over time, more features will be added. As the current features are barely for a functioning multiplayer game.
 AI was used in the developemnt - This does not mean the 'whole thing is AI'. AI was used in parts i was unsure about and am still learning about, it was used to assist, not to copy and paste.
+
+AI was used in development because this was my first ever major project. I was still quite new to programming and learnt a lot of things from this project and the AI.
 
 # Whats the goal?
 To make a basic Mutliplayer engine that 'works' so noone is trapped from CCU Limits. Obviously there are much better alternatives than this but its a fun project I'm working on.
